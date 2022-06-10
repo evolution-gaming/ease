@@ -1,0 +1,48 @@
+linters-settings:
+  errcheck:
+    exclude-functions:
+      - (*log.Logger).Output
+    check-type-assertions: true
+  goconst:
+    min-len: 2
+    min-occurrences: 3
+  govet:
+    check-shadowing: true
+  nolintlint:
+    require-explanation: true
+    require-specific: true
+  goheader:
+    values:
+      const:
+        COMPANY: Evolution
+      regexp:
+        CPY_YEAR: 20\d\d
+    template: |-
+      Copyright ©{{CPY_YEAR}} {{COMPANY}}. All rights reserved.
+      Use of this source code is governed by a MIT-style
+      license that can be found in the LICENSE file.
+
+
+linters:
+  disable-all: true
+  enable:
+    # Default list
+    - deadcode
+    - errcheck
+    - gosimple
+    - govet
+    - ineffassign
+    - staticcheck
+    - structcheck
+    - typecheck
+    - unused
+    - varcheck
+    # Additional
+    - dupl
+    - errname
+    - misspell
+    - gocritic
+    - godot
+    - gofumpt
+    - goheader
+    - gosec

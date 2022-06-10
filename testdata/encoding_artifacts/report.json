@@ -1,0 +1,138 @@
+{
+  "EncodingResult": {
+    "StartTime": "2022-01-06T18:18:31.982421571+02:00",
+    "EndTime": "2022-01-06T18:18:36.857253159+02:00",
+    "RunResults": [
+      {
+        "Name": "libx264",
+        "SourceFile": "testdata/video/testsrc01.mp4",
+        "CompressedFile": "out/testsrc01_libx264.mp4",
+        "OutputFile": "out/testsrc01_libx264.out",
+        "LogFile": "out/testsrc01_libx264.log",
+        "WorkDir": "/tmp",
+        "Cmd": "ffmpeg -i testdata/video/testsrc01.mp4 -c:v libx264 -crf 25 -an -y out/testsrc01_libx264.mp4",
+        "Errors": null,
+        "Stats": {
+          "HStime": "33.64ms",
+          "HUtime": "40.453ms",
+          "HElapsed": "57.442999ms",
+          "Stime": 33640000,
+          "Utime": 40453000,
+          "Elapsed": 57442999,
+          "MaxRss": 61832
+        },
+        "VideoDuration": 1,
+        "AvgEncodingSpeed": 17.408561833618748
+      },
+      {
+        "Name": "libx264",
+        "SourceFile": "testdata/video/testsrc02.mp4",
+        "CompressedFile": "out/testsrc02_libx264.mp4",
+        "OutputFile": "out/testsrc02_libx264.out",
+        "LogFile": "out/testsrc02_libx264.log",
+        "WorkDir": "/tmp",
+        "Cmd": "ffmpeg -i testdata/video/testsrc02.mp4 -c:v libx264 -crf 25 -an -y out/testsrc02_libx264.mp4",
+        "Errors": null,
+        "Stats": {
+          "HStime": "112.271ms",
+          "HUtime": "5.694777s",
+          "HElapsed": "1.41726839s",
+          "Stime": 112271000,
+          "Utime": 5694777000,
+          "Elapsed": 1417268390,
+          "MaxRss": 566520
+        },
+        "VideoDuration": 10,
+        "AvgEncodingSpeed": 7.055826596118467
+      },
+      {
+        "Name": "libx265",
+        "SourceFile": "testdata/video/testsrc01.mp4",
+        "CompressedFile": "out/testsrc01_libx265.mp4",
+        "OutputFile": "out/testsrc01_libx265.out",
+        "LogFile": "out/testsrc01_libx265.log",
+        "WorkDir": "/tmp",
+        "Cmd": "ffmpeg -i testdata/video/testsrc01.mp4 -c:v libx265 -crf 25 -an -y out/testsrc01_libx265.mp4",
+        "Errors": null,
+        "Stats": {
+          "HStime": "48.431ms",
+          "HUtime": "165.663ms",
+          "HElapsed": "133.863451ms",
+          "Stime": 48431000,
+          "Utime": 165663000,
+          "Elapsed": 133863451,
+          "MaxRss": 87540
+        },
+        "VideoDuration": 1,
+        "AvgEncodingSpeed": 7.47029896905915
+      },
+      {
+        "Name": "libx265",
+        "SourceFile": "testdata/video/testsrc02.mp4",
+        "CompressedFile": "out/testsrc02_libx265.mp4",
+        "OutputFile": "out/testsrc02_libx265.out",
+        "LogFile": "out/testsrc02_libx265.log",
+        "WorkDir": "/tmp",
+        "Cmd": "ffmpeg -i testdata/video/testsrc02.mp4 -c:v libx265 -crf 25 -an -y out/testsrc02_libx265.mp4",
+        "Errors": null,
+        "Stats": {
+          "HStime": "318.541ms",
+          "HUtime": "15.879947s",
+          "HElapsed": "3.105075765s",
+          "Stime": 318541000,
+          "Utime": 15879947000,
+          "Elapsed": 3105075765,
+          "MaxRss": 423076
+        },
+        "VideoDuration": 10,
+        "AvgEncodingSpeed": 3.2205333321391594
+      }
+    ]
+  },
+  "VQMResults": [
+    {
+      "Name": "libx264",
+      "SourceFile": "testdata/video/testsrc01.mp4",
+      "CompressedFile": "out/testsrc01_libx264.mp4",
+      "ResultFile": "out/testsrc01_libx264_vqm.json",
+      "Metrics": {
+        "PSNR": 45.87611975567013,
+        "MS_SSIM": 0.9991533499728804,
+        "VMAF": 96.74885432316003
+      }
+    },
+    {
+      "Name": "libx264",
+      "SourceFile": "testdata/video/testsrc02.mp4",
+      "CompressedFile": "out/testsrc02_libx264.mp4",
+      "ResultFile": "out/testsrc02_libx264_vqm.json",
+      "Metrics": {
+        "PSNR": 54.94136519928173,
+        "MS_SSIM": 0.9984714626206539,
+        "VMAF": 97.58060632012022
+      }
+    },
+    {
+      "Name": "libx265",
+      "SourceFile": "testdata/video/testsrc01.mp4",
+      "CompressedFile": "out/testsrc01_libx265.mp4",
+      "ResultFile": "out/testsrc01_libx265_vqm.json",
+      "Metrics": {
+        "PSNR": 48.68002831653132,
+        "MS_SSIM": 0.9992610006260947,
+        "VMAF": 97.29211333550785
+      }
+    },
+    {
+      "Name": "libx265",
+      "SourceFile": "testdata/video/testsrc02.mp4",
+      "CompressedFile": "out/testsrc02_libx265.mp4",
+      "ResultFile": "out/testsrc02_libx265_vqm.json",
+      "Metrics": {
+        "PSNR": 57.1854432437615,
+        "MS_SSIM": 0.9984762053713045,
+        "VMAF": 97.593443551952
+      }
+    }
+  ]
+}

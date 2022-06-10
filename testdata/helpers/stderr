@@ -1,0 +1,5 @@
+#!/usr/bin/env sh
+#
+# Simple helper that runs given command and redirects all output to stderr
+exec 1>&2
+$@

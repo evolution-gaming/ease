@@ -1,0 +1,94 @@
+name: "ci"
+
+on:
+  push:
+    branches:
+      - 'main'
+    tags:
+      - 'v*'
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+    branches:
+      - 'main'
+
+permissions:
+  contents: write
+
+jobs:
+  lint:
+    name: Static code analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source tree
+        uses: actions/checkout@v3
+
+      - uses: actions/setup-go@v3
+        with:
+          go-version-file: 'go.mod'
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v3
+        with:
+          # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
+          version: latest
+
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    env:
+      FFMPEG_DEST_DIR: /opt/ffmpeg-static
+    steps:
+      - name: Checkout source tree
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      # Cache for expensive static ffmpeg binary installation
+      - name: Cache for static ffmpeg
+        uses: actions/cache@v3
+        id: cache-ffmpeg
+        with:
+          path: ${{ env.FFMPEG_DEST_DIR }}
+          key: ${{ runner.os }}-static-ffmpeg-v5.0.1
+
+      # Only run this expensive step if we have a cache miss
+      - if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
+        name: Install static ffmpeg
+        run: |
+          curl --connect-timeout 10 -Lv -o ffmpeg.tar.xz https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+          echo "07149022696e10e528f48f402c3b8570  ffmpeg.tar.xz" | md5sum --check -
+          mkdir -p "$FFMPEG_DEST_DIR"
+          tar -C "$FFMPEG_DEST_DIR" -xf ffmpeg.tar.xz --strip-components=1
+
+      - name: Debug FS
+        run: |
+          env
+          pwd
+          echo "ls -lR" && ls -lR || true
+          echo "ls -lR $FFMPEG_DEST_DIR" && ls -lR "$FFMPEG_DEST_DIR" || true
+
+      - name: Set up Go
+        uses: actions/setup-go@v3
+        with:
+          go-version-file: 'go.mod'
+
+      - name: Verify module dependencies
+        run: go mod verify
+
+      - name: Test
+        run: |
+          export PATH="$FFMPEG_DEST_DIR":$PATH
+          go test -v -cover ./...
+
+      - name: Build
+        run: |
+          go build -trimpath -ldflags="-buildid=" -v ./...
+
+      - name: Save build artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ease-${{ github.run_number }}
+          path: ease
