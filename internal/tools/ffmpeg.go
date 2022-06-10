@@ -30,6 +30,7 @@ var (
 	libvmafModelLocations = []string{
 		"/usr/local/share/model",
 		"/usr/share/model",
+		"/opt/ffmpeg-static/model",
 	}
 )
 
