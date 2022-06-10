@@ -81,11 +81,12 @@ jobs:
       - name: Test
         run: |
           export PATH="$FFMPEG_DEST_DIR":$PATH
-          go test -v -cover ./...
+          go test -v -cover
 
       - name: Build
         run: |
-          go build -trimpath -ldflags="-buildid=" -v ./...
+          go build -trimpath -ldflags="-buildid=" -v
+          ls -l
 
       - name: Save build artifact
         uses: actions/upload-artifact@v3
