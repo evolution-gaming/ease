@@ -63,13 +63,6 @@ jobs:
           mkdir -p "$FFMPEG_DEST_DIR"
           tar -C "$FFMPEG_DEST_DIR" -xf ffmpeg.tar.xz --strip-components=1
 
-      - name: Debug FS
-        run: |
-          env
-          pwd
-          echo "ls -lR" && ls -lR || true
-          echo "ls -lR $FFMPEG_DEST_DIR" && ls -lR "$FFMPEG_DEST_DIR" || true
-
       - name: Set up Go
         uses: actions/setup-go@v3
         with:
@@ -81,12 +74,14 @@ jobs:
       - name: Test
         run: |
           export PATH="$FFMPEG_DEST_DIR":$PATH
-          go test -v -cover
+          bash -x ./build.sh clean
+          bash -x ./build.sh test
 
       - name: Build
         run: |
-          go build -trimpath -ldflags="-buildid=" -v
-          ls -l
+          export PATH="$FFMPEG_DEST_DIR":$PATH
+          bash -x ./build.sh clean
+          bash -x ./build.sh build
 
       - name: Save build artifact
         uses: actions/upload-artifact@v3
