@@ -1,6 +1,7 @@
 # Encoder Evaluation Suite (ease)
 
-A play on words, *ease* phonetically sounds very close to *EES*, but carries a meaning of:
+Tool name is a "play on words", *EES* phonetically sounds very close to *ease* which
+carries a meaning of:
 
 > ease *verb*:
 > to make or become less severe, difficult, unpleasant, painful
@@ -8,15 +9,15 @@ A play on words, *ease* phonetically sounds very close to *EES*, but carries a m
 > ease *noun*:
 > the state of experiencing no difficulty, effort, pain
 
-Well, encoder evaluation is no easy task, it actually requires very much effort
-and combines lot of "stages". This tools should help lift some of the efforts
-and make a tad little easier.
+Encoder evaluation is no easy task, it requires substantial effort and combines a lot of
+"stages". This tool should help lift some of the menial burden and make it a tad little
+easier.
 
 ## Project layout
 
 Project is essentially a single CLI tool thus all the interesting bits are in project
-root. At the moment internal logic is hidden inside `internal/` directory. Also there are
-no plans to expose any parts of the project as a reusable library.
+root. Internal logic is hidden inside `internal/` directory. Also there are no plans to
+expose any parts of the project as a reusable library.
 
 ## Build
 
