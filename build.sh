@@ -80,12 +80,29 @@ do_lint() {
 do_build() {
     CGO_ENABLED=0 "$GO" build -o "${OUT_DIR}/${APP_NAME}" -trimpath \
         -ldflags="-X main.version=$VERSION -buildid=" -v
+
+    build_artifact_info "${OUT_DIR}/${APP_NAME}"
 }
 
 # Release build includes additional flags.
 rel_build() {
     CGO_ENABLED=0 "$GO" build -o "${OUT_DIR}/${APP_NAME}" -trimpath \
         -ldflags="-s -w -X main.version=$VERSION -buildid=" -v
+
+    build_artifact_info "${OUT_DIR}/${APP_NAME}"
+}
+
+# Print some relevant info on build artifact.
+#
+# arg $1: path to artifact/binary
+build_artifact_info() {
+    go version -m "$1"
+    stat "$1"
+
+    # On GitHub CI also set step output
+    if [ "${GITHUB_ACTIONS:-false}" == "true" ] ; then
+        echo "::set-output name=artifact_path::$1"
+    fi
 }
 
 # Generate a simple changelog from git commits

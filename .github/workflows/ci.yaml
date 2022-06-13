@@ -78,6 +78,7 @@ jobs:
           bash -x ./build.sh test
 
       - name: Build
+        id: build
         run: |
           export PATH="$FFMPEG_DEST_DIR":$PATH
           bash -x ./build.sh clean
@@ -87,4 +88,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ease-${{ github.run_number }}
-          path: ease
+          path: ${{ steps.build.outputs.artifact_path }}
