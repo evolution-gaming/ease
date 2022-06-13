@@ -17,7 +17,7 @@
 # Go workspace file
 go.work
 
-# Other temporary or generated artefacts
+# Other temporary or generated artifacts
 out/
 tmp/
 bin/
