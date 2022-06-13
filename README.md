@@ -1,4 +1,5 @@
 # Encoder Evaluation Suite (ease)
+[![ci](https://github.com/evolution-gaming/ease/actions/workflows/ci.yaml/badge.svg)](https://github.com/evolution-gaming/ease/actions/workflows/ci.yaml)
 
 Tool name is a "play on words", *EES* phonetically sounds very close to *ease* which
 carries a meaning of:
