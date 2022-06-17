@@ -47,3 +47,6 @@ For usage documentation and examples head to [usage documentation](doc/usage.md)
 
 There is also documentation on [how to bootstrap project](doc/develop.md) for development
 purposes.
+
+## License
+Ease tool source code is licensed under [MIT license](https://choosealicense.com/licenses/mit/), see [LICENSE](LICENSE).
