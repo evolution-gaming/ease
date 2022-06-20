@@ -13,47 +13,84 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func Test_FfprobePath(t *testing.T) {
-	// Create a fake ffprobe binary and prepend it to PATH.
-	fakeBinDir := t.TempDir()
-	wantPath := path.Join(fakeBinDir, "ffprobe")
-	f, err := os.OpenFile(wantPath, os.O_CREATE, 0o755)
-	if err != nil {
-		t.Fatal(err)
-	}
-	f.Close()
-	sysPath := os.Getenv("PATH")
-	t.Setenv("PATH", fakeBinDir+":"+sysPath)
-
-	t.Log("Call to Path() should result in no error")
-	gotPath, err := FfprobePath()
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
+func Test_Path(t *testing.T) {
+	type testCase struct {
+		pathFunc func() (string, error)
+		exeName  string
 	}
 
-	t.Log("Call to Path() should return ffprobe's path")
-	if diff := cmp.Diff(wantPath, gotPath); diff != "" {
-		t.Errorf("FfprobePath() mismatch (-want +got):\n%s", diff)
+	tests := map[string]testCase{
+		"FfprobePath()": {
+			pathFunc: FfprobePath,
+			exeName:  "ffprobe",
+		},
+		"FfmpegPath()": {
+			pathFunc: FfmpegPath,
+			exeName:  "ffmpeg",
+		},
 	}
 
-	t.Logf("Executable path (%s) should exist", gotPath)
-	if _, err := os.Stat(gotPath); err != nil {
-		t.Errorf("ffprobe's path does not exist: %v", err)
+	run := func(t *testing.T, tc testCase) {
+		// Create a fake binary and put it on PATH
+		fakeBinDir := t.TempDir()
+		wantPath := path.Join(fakeBinDir, tc.exeName)
+		f, err := os.OpenFile(wantPath, os.O_CREATE, 0o755)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.Close()
+		sysPath := os.Getenv("PATH")
+		t.Setenv("PATH", fakeBinDir+":"+sysPath)
+
+		gotPath, err := tc.pathFunc()
+		if err != nil {
+			t.Errorf("Unexpected error: %v", err)
+		}
+
+		if diff := cmp.Diff(wantPath, gotPath); diff != "" {
+			t.Errorf("Path mismatch (-want +got):\n%s", diff)
+		}
+
+		if _, err := os.Stat(gotPath); err != nil {
+			t.Errorf("%s's path does not exist: %v", tc.exeName, err)
+		}
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			run(t, tc)
+		})
 	}
 }
 
-func Test_FfprobePath_Negative(t *testing.T) {
-	// Wipe PATH so that no binary can be located including ffprobe.
-	t.Setenv("PATH", "")
-
-	t.Log("Call to FfprobePath() should result in error")
-	s, err := FfprobePath()
-	if err == nil {
-		t.Error("Error expected, but got <nil>")
+func Test_Path_Negative(t *testing.T) {
+	type testCase struct {
+		pathFunc func() (string, error)
 	}
 
-	if s != "" {
-		t.Errorf("Expected empty string as path, but got: %v", s)
+	tests := map[string]testCase{
+		"FfprobePath()": {
+			pathFunc: FfprobePath,
+		},
+		"FfmpegPath()": {
+			pathFunc: FfmpegPath,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			// Wipe PATH so that no binary can be located.
+			t.Setenv("PATH", "")
+
+			s, err := tc.pathFunc()
+			if err == nil {
+				t.Error("Expected error since binary is not on PATH, but got <nil>")
+			}
+
+			if s != "" {
+				t.Errorf("Expected empty string as path, but got: %v", s)
+			}
+		})
 	}
 }
 
@@ -81,7 +118,7 @@ func Test_FfprobeExtractMetadata(t *testing.T) {
 }
 
 func Test_FfprobeExtractMetadata_Negative(t *testing.T) {
-	t.Run("Should fail for non-existent vide file", func(t *testing.T) {
+	t.Run("Should fail for non-existent media file", func(t *testing.T) {
 		_, err := FfprobeExtractMetadata("/non/existent/path/to/file")
 		if err == nil {
 			t.Error("Expected error, but got <nil>")
@@ -94,6 +131,42 @@ func Test_FfprobeExtractMetadata_Negative(t *testing.T) {
 		_, err := FfprobeExtractMetadata(nonMediaFile)
 		if err == nil {
 			t.Error("Expected error, but got <nil>")
+		}
+	})
+}
+
+func Test_FindLibvmafModel(t *testing.T) {
+	t.Run("Model path should be valid", func(t *testing.T) {
+		checkModelFile := func(t *testing.T, fPath string) {
+			if _, err := os.Stat(fPath); err != nil {
+				t.Errorf("Model file path is not valid: %v", err)
+			}
+		}
+
+		gotPath, err := FindLibvmafModel()
+		if err != nil {
+			t.Errorf("Unexpected error locating libvmaf model file: %v", err)
+		}
+		checkModelFile(t, gotPath)
+	})
+
+	t.Run("Override via environment var", func(t *testing.T) {
+		// Create a fake model file
+		fakeModelFile := path.Join(t.TempDir(), libvmafModel)
+		t.Setenv(libvmafModelEnvOverride, fakeModelFile)
+		f, err := os.OpenFile(fakeModelFile, os.O_CREATE, 0o644)
+		if err != nil {
+			t.Fatal(err)
+		}
+		f.Close()
+
+		gotPath, err := FindLibvmafModel()
+		if err != nil {
+			t.Errorf("Unexpected error locating model file: %v", err)
+		}
+
+		if diff := cmp.Diff(fakeModelFile, gotPath); diff != "" {
+			t.Errorf("Model file path mismatch (-want +got):\n%s", diff)
 		}
 	})
 }
