@@ -35,7 +35,7 @@ func (e *PlanConfigError) addReason(reason string) {
 
 // PlanConfig holds configuration for new Plan creation.
 type PlanConfig struct {
-	// Direcotory to store compressed videos, logfiles etc.
+	// Directory to store compressed videos, logfiles etc.
 	OutDir string
 	// List of source (mezzanine) video files.
 	Inputs  []string
