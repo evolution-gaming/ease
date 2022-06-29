@@ -41,7 +41,9 @@ do_help() {
     log "Supported build actions:"   
     awk '
     /^do_[a-zA-Z0-9_]+\(\)/ {
-        a=gensub("^do_([a-zA-Z0-9_]+).*","\\1", "g");
+        a=$0;
+        gsub("[(){]", "", a);
+        gsub("^do_", "", a);
         printf "%-15s %s\n", a, prev;
     }
     {
