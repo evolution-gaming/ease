@@ -2,15 +2,13 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-package logging_test
+package logging
 
 import (
 	"log"
 	"regexp"
 	"strings"
 	"testing"
-
-	"github.com/evolution-gaming/ease/internal/logging"
 )
 
 func TestUnformattedLogging(t *testing.T) {
@@ -23,14 +21,14 @@ func TestUnformattedLogging(t *testing.T) {
 		"Simple Info": {
 			given:   "info message",
 			want:    regexp.MustCompile("INFO: .*info message"),
-			logFunc: logging.Info,
-			logger:  logging.InfoLogger,
+			logFunc: Info,
+			logger:  InfoLogger,
 		},
 		"Simple Debug": {
 			given:   "debug message",
 			want:    regexp.MustCompile("DEBUG: .*debug message"),
-			logFunc: logging.Debug,
-			logger:  logging.DebugLogger,
+			logFunc: Debug,
+			logger:  DebugLogger,
 		},
 	}
 	for name, tc := range tests {
@@ -60,16 +58,16 @@ func TestFormattedLogging(t *testing.T) {
 			given2:  "info message 2",
 			want:    regexp.MustCompile("INFO: .*info message 1 -- info message 2"),
 			format:  "%s -- %s",
-			logFunc: logging.Infof,
-			logger:  logging.InfoLogger,
+			logFunc: Infof,
+			logger:  InfoLogger,
 		},
 		"Complex Debug": {
 			given1:  "debug message 1",
 			given2:  "debug message 2",
 			format:  "%s -- %s",
 			want:    regexp.MustCompile("DEBUG: .*debug message 1 -- debug message 2"),
-			logFunc: logging.Debugf,
-			logger:  logging.DebugLogger,
+			logFunc: Debugf,
+			logger:  DebugLogger,
 		},
 	}
 	for name, tc := range tests {
@@ -83,4 +81,38 @@ func TestFormattedLogging(t *testing.T) {
 			}
 		})
 	}
+}
+
+func Test_EnableInfoLogger(t *testing.T) {
+	t.Run("Enabling info logger should set log writer", func(t *testing.T) {
+		before := InfoLogger.Writer()
+		EnableInfoLogger()
+		after := InfoLogger.Writer()
+
+		if after != defaultOutput {
+			t.Errorf("InfoLogger writer mismatch (-want +got):\n\t-%#v\n\t+%#v",
+				defaultOutput, after)
+		}
+
+		if after == before {
+			t.Error("EnableInfoLogger() had no effect: before and after writers are the same")
+		}
+	})
+}
+
+func Test_EnableDebugLogger(t *testing.T) {
+	t.Run("Enabling debug logger should set log writer", func(t *testing.T) {
+		before := DebugLogger.Writer()
+		EnableDebugLogger()
+		after := DebugLogger.Writer()
+
+		if after != defaultOutput {
+			t.Errorf("DebugLogger writer mismatch (-want +got):\n\t-%#v\n\t+%#v",
+				defaultOutput, after)
+		}
+
+		if after == before {
+			t.Error("EnableDebugLogger() had no effect: before and after writers are the same")
+		}
+	})
 }

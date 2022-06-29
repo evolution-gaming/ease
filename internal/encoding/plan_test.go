@@ -118,7 +118,7 @@ func Test_HappyPathPlanExecution(t *testing.T) {
 		}
 	})
 	t.Run("Encoding result should have command stdout", func(t *testing.T) {
-		// Test for existens of some known strings/markers of ffmpeg output
+		// Test for existence of some known strings/markers of ffmpeg output
 		markers := []string{
 			"ffmpeg version",
 			"Metadata:",
