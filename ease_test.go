@@ -17,33 +17,77 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-// Encode subcommand related tests.
-func TestEncodeApp_WrongFlags(t *testing.T) {
+// Happy path functional test for run sub-command.
+func TestRunApp_Run(t *testing.T) {
+	tempDir := t.TempDir()
+	ePlan := fixPlanConfig(t)
+	outDir := path.Join(tempDir, "out")
+
+	t.Log("Should succeed execution with -plan flag")
+	// Run command will generate encoding artifacts and analysis artifacts.
+	err := CreateRunCommand().Run([]string{"-plan", ePlan, "-out-dir", outDir})
+	if err != nil {
+		t.Errorf("Unexpected error running encode: %v", err)
+	}
+
+	buf, err2 := os.ReadFile(path.Join(outDir, "report.json"))
+	if err2 != nil {
+		t.Errorf("Unexpected error: %v", err2)
+	}
+	if len(buf) == 0 {
+		t.Errorf("No data in report file")
+	}
+
+	t.Log("Analyse should create bitrate, VMAF, PSNR and SSIM plots")
+	if m, _ := filepath.Glob(fmt.Sprintf("%s/*/*bitrate.png", outDir)); len(m) != 1 {
+		t.Errorf("Expecting one file for bitrate plot, got: %s", m)
+	}
+	if m, _ := filepath.Glob(fmt.Sprintf("%s/*/*vmaf.png", outDir)); len(m) != 1 {
+		t.Errorf("Expecting one file for VMAF plot, got: %s", m)
+	}
+	if m, _ := filepath.Glob(fmt.Sprintf("%s/*/*psnr.png", outDir)); len(m) != 1 {
+		t.Errorf("Expecting one file for PSNR plot, got: %s", m)
+	}
+	if m, _ := filepath.Glob(fmt.Sprintf("%s/*/*ms-ssim.png", outDir)); len(m) != 1 {
+		t.Errorf("Expecting one file for MS-SSIM plot, got: %s", m)
+	}
+}
+
+// Error cases for run sub-command flags.
+func TestRunApp_FlagErrors(t *testing.T) {
 	tests := map[string]struct {
 		// substring in Error()
 		want      string
 		givenArgs []string
 	}{
 		"Wrong flags": {
-			givenArgs: []string{"-zzz", "aaaa", "-plan", "a/xxx"},
-			want:      "encode usage error",
+			givenArgs: []string{"-zzz", "aaaa", "-plan", "a/xxx", "-out-dir", "out"},
+			want:      "run usage error",
 		},
-		"Empty flags": {
-			givenArgs: []string{""},
+		"Mandatory plan flag missing": {
+			givenArgs: []string{"-out-dir", "out"},
 			want:      "mandatory option -plan is missing",
 		},
+		"Mandatory out-dir flag missing": {
+			givenArgs: []string{"-plan", "a/xxx"},
+			want:      "mandatory option -out-dir is missing",
+		},
 		"Non-existent conf": {
-			givenArgs: []string{"-plan", "a/yyy"},
+			givenArgs: []string{"-plan", "a/yyy", "-out-dir", "out"},
 			want:      "encoding plan file does not exist?",
+		},
+		"Empty flags": {
+			givenArgs: []string{},
+			want:      "mandatory option",
 		},
 	}
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			cmd := CreateEncodeCommand()
+			cmd := CreateRunCommand()
 			// Discard usage output so that during test execution test output is
 			// not flooded with command Usage/Help stuff.
-			if c, ok := cmd.(*EncodeApp); ok {
+			if c, ok := cmd.(*App); ok {
 				c.fs.SetOutput(io.Discard)
 			}
 			gotErr := cmd.Run(tc.givenArgs)
@@ -54,14 +98,20 @@ func TestEncodeApp_WrongFlags(t *testing.T) {
 	}
 }
 
-func TestEncodeApp_Run_WithFailedVQM(t *testing.T) {
+/*************************************
+* Negative tests for run sub-command.
+ *************************************/
+
+func TestRunApp_Run_WithFailedVQM(t *testing.T) {
 	// Create a fake ffmpeg and modify PATH so that it's picked up first and
 	// blows up VQM calculation.
 	fixCreateFakeFfmpegAndPutItOnPath(t)
 
-	app := CreateEncodeCommand()
-	plan, _ := fixPlanConfig(t)
-	gotErr := app.Run([]string{"-plan", plan})
+	app := CreateRunCommand()
+	plan := fixPlanConfig(t)
+	outDir := path.Join(t.TempDir(), "out")
+
+	gotErr := app.Run([]string{"-plan", plan, "-out-dir", outDir})
 	if gotErr == nil {
 		t.Fatal("Error expected but go <nil>")
 	}
@@ -78,9 +128,9 @@ func TestEncodeApp_Run_WithFailedVQM(t *testing.T) {
 	}
 }
 
-func TestEncodeApp_Run_WithInvalidPlanConfigParseError(t *testing.T) {
-	app := CreateEncodeCommand()
-	gotErr := app.Run([]string{"-plan", fixPlanConfigInvalid(t)})
+func TestRunApp_Run_WithInvalidPlanConfigParseError(t *testing.T) {
+	app := CreateRunCommand()
+	gotErr := app.Run([]string{"-plan", fixPlanConfigInvalid(t), "-out-dir", t.TempDir()})
 	if gotErr == nil {
 		t.Fatal("Error expected but go <nil>")
 	}
@@ -97,142 +147,54 @@ func TestEncodeApp_Run_WithInvalidPlanConfigParseError(t *testing.T) {
 	}
 }
 
-func TestEncodeApp_Run(t *testing.T) {
-	plan, _ := fixPlanConfig(t)
-	t.Run("Should succeed execution with -plan flag", func(t *testing.T) {
-		// Since we do not specify -report option, report content will end up on
-		// stdout, we want to redirect stdout to avoid flooding test output and
-		// also to do minimal checks.
-		redirStdout := path.Join(t.TempDir(), "report.json")
-		redirectStdout(redirStdout, t)
-		app := CreateEncodeCommand()
-		err := app.Run([]string{"-plan", plan})
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
+func TestRunApp_Run_WithNonEmptyOutDirShouldTerminate(t *testing.T) {
+	app := CreateRunCommand()
+	plan := fixPlanConfig(t)
+	// Dir containing plan file by definition is non-empty.
+	outDir := path.Dir(plan)
 
-		buf, err2 := os.ReadFile(redirStdout)
-		if err2 != nil {
-			t.Errorf("Unexpected error: %v", err2)
-		}
-		if len(buf) == 0 {
-			t.Errorf("No data in report file")
-		}
-	})
-	t.Run("Should succeed execution with -report flag", func(t *testing.T) {
-		app := CreateEncodeCommand()
-		report := path.Join(t.TempDir(), "report.json")
-		err := app.Run([]string{"-plan", plan, "-report", report})
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-		buf, err2 := os.ReadFile(report)
-		if err2 != nil {
-			t.Errorf("Unexpected error: %v", err2)
-		}
-		if len(buf) == 0 {
-			t.Errorf("No data in report file")
-		}
-	})
-	t.Run("Should succeed execution with -dry-run flag", func(t *testing.T) {
-		app := CreateEncodeCommand()
-		err := app.Run([]string{"-dry-run", "-plan", plan})
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-	})
-}
-
-// Analyse subcommand related tests.
-func TestAnalyseApp_WrongFlags(t *testing.T) {
-	tests := map[string]struct {
-		// substring in Error()
-		want      string
-		givenArgs []string
-	}{
-		"Wrong flags": {
-			givenArgs: []string{"-zzz", "aaaa", "-version"},
-			want:      "analyse usage error",
-		},
-		"Mandatory -report flag": {
-			givenArgs: []string{"-out-dir", "/tmp"},
-			want:      "mandatory option -report is missing",
-		},
-
-		"Mandatory -out-dir flag": {
-			givenArgs: []string{"-report", "testdata/encoding_artifacts/report.json"},
-			want:      "mandatory option -out-dir is missing",
-		},
-		"Non-existent conf": {
-			givenArgs: []string{"-report", "a/yyy", "-out-dir", "/tmp"},
-			want:      "report file does not exist?",
-		},
+	t.Logf("Given existing out dir: %s", outDir)
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatalf("Cannot create out dir: %s", err)
 	}
 
-	for name, tc := range tests {
-		wantExitCode := 2
-		t.Run(name, func(t *testing.T) {
-			cmd := CreateAnalyseCommand()
-			// Discard usage output so that during test execution test output is
-			// not flooded with command Usage/Help stuff.
-			if c, ok := cmd.(*AnalyseApp); ok {
-				c.fs.SetOutput(io.Discard)
-			}
-			gotErr := cmd.Run(tc.givenArgs)
-			if !strings.Contains(gotErr.Error(), tc.want) {
-				t.Errorf("Error mismatch (-want +got):\n-%s\n+%s\n", tc.want, gotErr.Error())
-			}
-			if e, ok := gotErr.(*AppError); ok {
-				gotExitCode := e.ExitCode()
-				if diff := cmp.Diff(wantExitCode, gotExitCode); diff != "" {
-					t.Errorf("ExitCode mismatch (-want +got):\n%s", diff)
-				}
-			} else {
-				t.Errorf("Unexpected error type: %v", gotErr)
-			}
-		})
+	t.Log("When plan is executed")
+	gotErr := app.Run([]string{"-plan", plan, "-out-dir", outDir})
+
+	t.Log("Then there is an error and program terminates")
+	if gotErr == nil {
+		t.Fatal("Error expected but go <nil>")
+	}
+	wantErrMsg := "non-empty out dir"
+	wantExitCode := 1
+
+	if !strings.HasPrefix(gotErr.Error(), wantErrMsg) {
+		t.Errorf("Error message mismatch (-want +got):\n-%s\n+%s", wantErrMsg, gotErr.Error())
+	}
+
+	gotExitCode := gotErr.(*AppError).ExitCode()
+	if diff := cmp.Diff(wantExitCode, gotExitCode); diff != "" {
+		t.Errorf("ExitCode mismatch (-want +got):\n%s", diff)
 	}
 }
 
-// Integration tests for ease tool.
+// Functional tests for other sub-commands..
 func TestIntegration_AllSubcommands(t *testing.T) {
 	tempDir := t.TempDir()
-	ePlan, encOutDir := fixPlanConfig(t)
-	report := path.Join(tempDir, "report.json")
-	analyseOutDir := path.Join(tempDir, "out")
+	outDir := path.Join(tempDir, "out")
+	ePlan := fixPlanConfig(t)
 
-	// Encode command will generate artifacts needed for other subcommands, so
-	// it is more like precondition.
-	err := CreateEncodeCommand().Run([]string{"-plan", ePlan, "-report", report})
+	// Run command will generate encoding artifacts and analysis artifacts for later use
+	// ans inputs.
+	err := CreateRunCommand().Run([]string{"-plan", ePlan, "-out-dir", outDir})
 	if err != nil {
-		t.Errorf("Unexpected error running encode: %v", err)
+		t.Fatalf("Unexpected during plan execution: %v", err)
 	}
-
-	t.Run("Analyse should create bitrate, VMAF, PSNR and SSIM plots", func(t *testing.T) {
-		// Run analyse subcommand.
-		err := CreateAnalyseCommand().Run([]string{"-report", report, "-out-dir", analyseOutDir})
-		if err != nil {
-			t.Errorf("Unexpected error running analysis: %v", err)
-		}
-
-		if m, _ := filepath.Glob(fmt.Sprintf("%s/*/*bitrate.png", analyseOutDir)); len(m) != 1 {
-			t.Errorf("Expecting one file for bitrate plot, got: %s", m)
-		}
-		if m, _ := filepath.Glob(fmt.Sprintf("%s/*/*vmaf.png", analyseOutDir)); len(m) != 1 {
-			t.Errorf("Expecting one file for VMAF plot, got: %s", m)
-		}
-		if m, _ := filepath.Glob(fmt.Sprintf("%s/*/*psnr.png", analyseOutDir)); len(m) != 1 {
-			t.Errorf("Expecting one file for PSNR plot, got: %s", m)
-		}
-		if m, _ := filepath.Glob(fmt.Sprintf("%s/*/*ms-ssim.png", analyseOutDir)); len(m) != 1 {
-			t.Errorf("Expecting one file for MS-SSIM plot, got: %s", m)
-		}
-	})
 
 	t.Run("Vqmplot should create plots", func(t *testing.T) {
 		var vqmFile string
 		// Need to get file with VQMs from encode stage.
-		if m, _ := filepath.Glob(fmt.Sprintf("%s/*vqm.json", encOutDir)); len(m) != 1 {
+		if m, _ := filepath.Glob(fmt.Sprintf("%s/*vqm.json", outDir)); len(m) != 1 {
 			t.Errorf("Expecting one file with VQM data, got: %s", m)
 		} else {
 			vqmFile = m[0]
@@ -255,7 +217,7 @@ func TestIntegration_AllSubcommands(t *testing.T) {
 	t.Run("Bitrate should create bitrate plot", func(t *testing.T) {
 		var compressedFile string
 		// Need to get compressed file from encode stage.
-		if m, _ := filepath.Glob(fmt.Sprintf("%s/*.mp4", encOutDir)); len(m) != 1 {
+		if m, _ := filepath.Glob(fmt.Sprintf("%s/*.mp4", outDir)); len(m) != 1 {
 			t.Errorf("Expecting one compressed file, got: %s", m)
 		} else {
 			compressedFile = m[0]

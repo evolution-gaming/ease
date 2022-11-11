@@ -19,10 +19,8 @@ import (
 // To make "encoding" faster we just copy source to destination, for the
 // purposes of tests it is irrelevant if we use realistic encoder or just a
 // simple file copy.
-func fixPlanConfig(t *testing.T) (fPath, outDir string) {
-	outDir = t.TempDir()
+func fixPlanConfig(t *testing.T) (fPath string) {
 	payload := []byte(fmt.Sprintf(`{
-		"OutDir": "%s",
 		"Inputs": [
 			"testdata/video/testsrc01.mp4"
 		],
@@ -32,8 +30,8 @@ func fixPlanConfig(t *testing.T) (fPath, outDir string) {
 				"CommandTpl": ["cp -v ",  "%%INPUT%% ", "%%OUTPUT%%.mp4"]
 			}
 		]
-	}`, outDir))
-	fPath = path.Join(outDir, "minimal.json")
+	}`))
+	fPath = path.Join(t.TempDir(), "minimal.json")
 	err := os.WriteFile(fPath, payload, fs.FileMode(0o644))
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
@@ -44,7 +42,6 @@ func fixPlanConfig(t *testing.T) (fPath, outDir string) {
 // fixPlanConfigInvalid fixture provides invalid encoding plan.
 func fixPlanConfigInvalid(t *testing.T) (fPath string) {
 	payload := []byte(`{
-		"OutDir": "/tmp",
 		"Inputs": [
 			"non-existent"
 		]
@@ -80,20 +77,4 @@ func fixCreateFakeFfmpegAndPutItOnPath(t *testing.T) {
 	if _, err := io.Copy(dst, src); err != nil {
 		t.Fatalf("Failure copying: %v", err)
 	}
-}
-
-// redirectStdout will temporarily redirect stdout to file.
-//
-// Useful to silence all output to stdout during tests and/or to capture stdout.
-func redirectStdout(filePath string, t *testing.T) {
-	stdout := os.Stdout
-	redirected, err := os.Create(filePath)
-	if err != nil {
-		t.Fatalf("unable to open file for redirection: %v", err)
-	}
-	os.Stdout = redirected
-	t.Cleanup(func() {
-		os.Stdout = stdout
-		defer redirected.Close()
-	})
 }

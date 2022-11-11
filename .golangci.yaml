@@ -27,22 +27,19 @@ linters:
   disable-all: true
   enable:
     # Default list
-    - deadcode
     - errcheck
     - gosimple
     - govet
     - ineffassign
     - staticcheck
-    - structcheck
     - typecheck
     - unused
-    - varcheck
     # Additional
     - dupl
     - errname
     - misspell
     - gocritic
     - godot
-    - gofumpt
+    - goimports
     - goheader
     - gosec

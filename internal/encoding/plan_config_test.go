@@ -24,7 +24,6 @@ func TestNewPlanConfigFromJSON(t *testing.T) {
 	}{
 		"Positive": {
 			given: []byte(`{
-				"OutDir": "out",
 				"Inputs": [
 					"src/vid1.mp4",
 					"src/vid2.mp4"
@@ -41,7 +40,6 @@ func TestNewPlanConfigFromJSON(t *testing.T) {
 				]
 			}`),
 			want: PlanConfig{
-				OutDir: "out",
 				Inputs: []string{
 					"src/vid1.mp4",
 					"src/vid2.mp4",
@@ -55,8 +53,8 @@ func TestNewPlanConfigFromJSON(t *testing.T) {
 		},
 		// Should this be positive?!
 		"Positive incomplete JSON": {
-			given: []byte(`{ "OutDir": "out" }`),
-			want:  PlanConfig{OutDir: "out"},
+			given: []byte(`{ "Inputs": ["input1"]}`),
+			want:  PlanConfig{Inputs: []string{"input1"}},
 			err:   nil,
 		},
 		"Negative invalid JSON": {
@@ -89,7 +87,6 @@ func TestNewPlanConfigFromJSON(t *testing.T) {
 
 func TestPlanConfigIsValid(t *testing.T) {
 	pc := PlanConfig{
-		OutDir:  ".",
 		Inputs:  []string{"../../testdata/video/testsrc01.mp4"},
 		Schemes: []Scheme{{}},
 	}
@@ -119,12 +116,11 @@ func TestNegativePlanConfigIsValid(t *testing.T) {
 		"Negative nil value": {
 			given: PlanConfig{},
 			wantReasons: []string{
-				"Inputs missing", "Schemes missing", "OutDir missing",
+				"Inputs missing", "Schemes missing",
 			},
 		},
 		"Negative Schemes missing": {
 			given: PlanConfig{
-				OutDir: ".",
 				Inputs: []string{"../../testdata/video/testsrc01.mp4"},
 			},
 			wantReasons: []string{
@@ -133,7 +129,6 @@ func TestNegativePlanConfigIsValid(t *testing.T) {
 		},
 		"Negative Inputs missing": {
 			given: PlanConfig{
-				OutDir:  ".",
 				Schemes: []Scheme{{}},
 			},
 			wantReasons: []string{
@@ -142,7 +137,6 @@ func TestNegativePlanConfigIsValid(t *testing.T) {
 		},
 		"Negative duplicate Inputs": {
 			given: PlanConfig{
-				OutDir:  ".",
 				Schemes: []Scheme{{}},
 				Inputs:  []string{"../../testdata/video/testsrc01.mp4", "../../testdata/video/testsrc01.mp4"},
 			},
@@ -150,19 +144,8 @@ func TestNegativePlanConfigIsValid(t *testing.T) {
 				"Duplicate inputs detected",
 			},
 		},
-		"Negative empty OutDir": {
-			given: PlanConfig{
-				OutDir:  "",
-				Inputs:  []string{"../../testdata/video/testsrc01.mp4"},
-				Schemes: []Scheme{{}},
-			},
-			wantReasons: []string{
-				"OutDir missing",
-			},
-		},
 		"Negative wrong file in Inputs": {
 			given: PlanConfig{
-				OutDir:  ".",
 				Inputs:  []string{"no_existent_file"},
 				Schemes: []Scheme{{}},
 			},
