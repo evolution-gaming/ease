@@ -35,8 +35,6 @@ func (e *PlanConfigError) addReason(reason string) {
 
 // PlanConfig holds configuration for new Plan creation.
 type PlanConfig struct {
-	// Directory to store compressed videos, logfiles etc.
-	OutDir string
 	// List of source (mezzanine) video files.
 	Inputs  []string
 	Schemes []Scheme
@@ -63,9 +61,6 @@ func (p *PlanConfig) IsValid() (bool, error) {
 	}
 	if len(p.Schemes) == 0 {
 		errPlanConfig.addReason("Schemes missing")
-	}
-	if p.OutDir == "" {
-		errPlanConfig.addReason("OutDir missing")
 	}
 
 	for _, i := range p.Inputs {

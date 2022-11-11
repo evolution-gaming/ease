@@ -156,7 +156,7 @@ func (s *Scheme) Expand(sourceFiles []string, outDir string) (cmds []EncoderCmd)
 			compressedFileExt = m[1]
 		}
 
-		// Generate varios filenames for later use.
+		// Generate various filenames for later use.
 		compressedFile := fmt.Sprintf("%s%s", oFileBase, compressedFileExt)
 		outputFile := fmt.Sprintf("%s.out", oFileBase)
 		logFile := fmt.Sprintf("%s.log", oFileBase)
@@ -196,14 +196,17 @@ type Plan struct {
 	PlanConfig
 	// Executable encoder commands
 	Commands []EncoderCmd
+	// Output directory
+	OutDir string
 	// Flag to signal if output dir has been created
 	outDirCreated bool
 }
 
 // NewPlan will create Plan instance from given PlanConfig.
-func NewPlan(pc PlanConfig) Plan {
+func NewPlan(pc PlanConfig, outDir string) Plan {
 	p := Plan{
 		PlanConfig:    pc,
+		OutDir:        outDir,
 		outDirCreated: false,
 	}
 	for _, scheme := range p.Schemes {

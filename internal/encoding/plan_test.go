@@ -26,10 +26,9 @@ func TestCreatePlanFromConfig(t *testing.T) {
 				{"x264 param1 x", "ffmpeg -i %INPUT% -param1 x -y %OUTPUT%.mp4"},
 				{"x264_param1_y", "ffmpeg -i %INPUT% -param1 y -y %OUTPUT%.mp4"},
 			},
-			OutDir: "out",
 		}
 		// When I create a new Plan from PlanConfig
-		plan := NewPlan(planConfig)
+		plan := NewPlan(planConfig, "out")
 		var gotCommands, gotOutputFiles []string
 		for _, c := range plan.Commands {
 			gotCommands = append(gotCommands, c.Cmd)
@@ -86,11 +85,10 @@ func Test_HappyPathPlanExecution(t *testing.T) {
 				"ffmpeg -i %INPUT% -an -c:v copy -y %OUTPUT%.mkv",
 			},
 		},
-		OutDir: outDir,
 	}
 	wantResultCount := len(pc.Schemes) * len(pc.Inputs)
 
-	plan = NewPlan(pc)
+	plan = NewPlan(pc, outDir)
 	gotResult, err := plan.Run()
 
 	t.Run("Encoding result should have start and end time stamps", func(t *testing.T) {
@@ -278,12 +276,11 @@ func TestNegativeEncodingPlanRunWitOutputOverflow(t *testing.T) {
 			// Unix yes should be fast enough to generate output that overflows
 			{"large output", "../../testdata/helpers/stderr yes"},
 		},
-		OutDir: outDir,
 	}
 	// 128 + 13 (SIGPIPE)
 	wantExitCode := 141
 	// Given a Plan
-	plan := NewPlan(planConfig)
+	plan := NewPlan(planConfig, outDir)
 	// When I do an unsuccessful Run of a Plan
 	gotResult, err := plan.Run()
 
@@ -309,10 +306,9 @@ func TestNegativeEncodingPlanResults(t *testing.T) {
 			// For the sake of completeness - have a successful run also
 			{"passing", "../../testdata/helpers/stderr cp -v %INPUT% %OUTPUT%.mp4"},
 		},
-		OutDir: outDir,
 	}
 	// Given a Plan
-	plan := NewPlan(planConfig)
+	plan := NewPlan(planConfig, outDir)
 	// When I do an unsuccessful Run of a Plan
 	gotResult, err := plan.Run()
 

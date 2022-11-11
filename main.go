@@ -32,8 +32,7 @@ func root() error {
 
 	// Register all subcommands here.
 	subCmds := []Commander{
-		CreateEncodeCommand(),
-		CreateAnalyseCommand(),
+		CreateRunCommand(),
 		CreateBitrateCommand(),
 		CreateVQMPlotCommand(),
 	}
@@ -72,7 +71,7 @@ func root() error {
 	// Parse global flags.
 	if err := fs.Parse(os.Args[1:]); err != nil {
 		return &AppError{
-			msg:      err.Error(),
+			msg:      fmt.Sprintf("parsing global flags: %s", err),
 			exitCode: 1,
 		}
 	}

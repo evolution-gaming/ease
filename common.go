@@ -7,11 +7,13 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"os"
+	"strings"
 
 	"github.com/evolution-gaming/ease/internal/encoding"
 	"github.com/evolution-gaming/ease/internal/logging"
@@ -123,4 +125,61 @@ func extractSourceData(r *report) map[string]sourceData {
 		s[v.CompressedFile] = sd
 	}
 	return s
+}
+
+// unrollResultErrors helper to unroll all errors from RunResults into a string.
+func unrollResultErrors(results []encoding.RunResult) string {
+	sb := strings.Builder{}
+	for i := range results {
+		rr := &results[i]
+		if len(rr.Errors) != 0 {
+			for _, e := range rr.Errors {
+				sb.WriteString(fmt.Sprintf("%s:\n\t%s\n", rr.Name, e.Error()))
+			}
+		}
+	}
+	return sb.String()
+}
+
+// createPlanConfig creates a PlanConfig instance from JSON configuration.
+func createPlanConfig(cfgFile string) (pc encoding.PlanConfig, err error) {
+	fd, err := os.Open(cfgFile)
+	if err != nil {
+		return pc, fmt.Errorf("cannot open conf file: %w", err)
+	}
+	defer fd.Close()
+
+	jdoc, err := io.ReadAll(fd)
+	if err != nil {
+		return pc, fmt.Errorf("cannot read data from conf file: %w", err)
+	}
+
+	pc, err = encoding.NewPlanConfigFromJSON(jdoc)
+	if err != nil {
+		return pc, fmt.Errorf("cannot create PlanConfig: %w", err)
+	}
+
+	if ok, err := pc.IsValid(); !ok {
+		ev := &encoding.PlanConfigError{}
+		if errors.As(err, &ev) {
+			logging.Debugf(
+				"PlanConfig validation failures:\n%s",
+				strings.Join(ev.Reasons(), "\n"))
+		}
+		return pc, fmt.Errorf("PlanConfig not valid: %w", err)
+	}
+
+	return pc, nil
+}
+
+// isNonEmptyDir will check if given directory is non-empty.
+func isNonEmptyDir(path string) bool {
+	fs, err := os.Open(path)
+	if err != nil {
+		return false
+	}
+	defer fs.Close()
+
+	n, _ := fs.Readdirnames(1)
+	return len(n) == 1
 }
