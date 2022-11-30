@@ -189,15 +189,75 @@ type frame struct {
 }
 
 type metric struct {
-	VMAF    float64 `json:"vmaf"`
-	PSNR    float64 `json:"psnr"`
-	MS_SSIM float64 `json:"ms_ssim"`
+	VMAF    float64
+	PSNR    float64
+	MS_SSIM float64
+}
+
+// UnmarshalJSON implements json.Unmarshaler interface for metric.
+//
+// A custom unmarshaler is needed to work around lack of stability around libvmaf measured
+// VQ metric field names in output.
+func (m *metric) UnmarshalJSON(b []byte) error {
+	// Ignore "null" as per convention.
+	if string(b) == "null" {
+		return nil
+	}
+
+	// Unmarshal JSON blob into map so that it includes all fields.
+	raw := make(map[string]float64)
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+
+	// Pull out required fields and in some cases their aliases (due to libvmaf changing
+	// field names at will)
+	for k, v := range raw {
+		switch k {
+		case "vmaf":
+			m.VMAF = v
+		case "psnr", "psnr_y":
+			m.PSNR = v
+		case "ms_ssim", "float_ms_ssim":
+			m.MS_SSIM = v
+		}
+	}
+
+	return nil
 }
 
 type pooledMetrics struct {
-	VMAF    pMetric `json:"vmaf"`
-	PSNR    pMetric `json:"psnr"`
-	MS_SSIM pMetric `json:"ms_ssim"`
+	VMAF    pMetric
+	PSNR    pMetric
+	MS_SSIM pMetric
+}
+
+// UnmarshalJSON implements json.Unmarshaler interface for pooledMetrics.
+//
+// A custom unmarshaler is needed to work around lack of stability around libvmaf measured
+// VQ metric field names in output.
+func (p *pooledMetrics) UnmarshalJSON(b []byte) error {
+	// Ignore "null" as per convention.
+	if string(b) == "null" {
+		return nil
+	}
+
+	raw := make(map[string]pMetric)
+	if err := json.Unmarshal(b, &raw); err != nil {
+		return err
+	}
+
+	for k, v := range raw {
+		switch k {
+		case "vmaf":
+			p.VMAF = v
+		case "psnr", "psnr_y":
+			p.PSNR = v
+		case "ms_ssim", "float_ms_ssim":
+			p.MS_SSIM = v
+		}
+	}
+	return nil
 }
 
 type pMetric struct {

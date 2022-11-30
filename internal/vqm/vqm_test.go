@@ -5,6 +5,8 @@
 package vqm
 
 import (
+	"encoding/json"
+	"os"
 	"testing"
 
 	"github.com/evolution-gaming/ease/internal/tools"
@@ -125,4 +127,80 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 			t.Errorf("Expected error when calling Measure() on invalid tool")
 		}
 	})
+}
+
+// Different libvmaf versions will generate slightly different outputs. Have to support
+// and test accordingly.
+func Test_ffmpegVMAFResult_UnmarshalVersions(t *testing.T) {
+	tests := map[string]struct {
+		resultFile string
+	}{
+		"libvmaf v2.3.0": {
+			resultFile: "../../testdata/vqm/libvmaf_v2.3.0.json",
+		},
+		"libvmaf v2.3.1": {
+			resultFile: "../../testdata/vqm/libvmaf_v2.3.1.json",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			jsonDoc, err := os.ReadFile(tt.resultFile)
+			if err != nil {
+				t.Fatalf("Unexpected error reading %s: %s", tt.resultFile, err)
+			}
+
+			res := &ffmpegVMAFResult{}
+			if err := json.Unmarshal(jsonDoc, res); err != nil {
+				t.Fatalf("Unexpected error from unmarshaling: %s", err)
+			}
+
+			// Check that per-frame VQM values were properly unmarshalled (should not be 0).
+			for i, v := range res.Frames {
+				if v.Metrics.MS_SSIM == 0 || v.Metrics.PSNR == 0 || v.Metrics.VMAF == 0 {
+					t.Errorf("Unexpected metric value for frame %v", i)
+				}
+			}
+
+			// Check that pooled metric values were properly unmarshalled (should not be 0).
+			if res.PooledMetrics.MS_SSIM.Min == 0 {
+				t.Error("Unexpected value 0 for pooled metric MS_SSIM.Min")
+			}
+			if res.PooledMetrics.MS_SSIM.Max == 0 {
+				t.Error("Unexpected value 0 for pooled metric MS_SSIM.Max")
+			}
+			if res.PooledMetrics.MS_SSIM.Mean == 0 {
+				t.Error("Unexpected value 0 for pooled metric MS_SSIM.Mean")
+			}
+			if res.PooledMetrics.MS_SSIM.HarmonicMean == 0 {
+				t.Error("Unexpected value 0 for pooled metric MS_SSIM.HarmonicMean")
+			}
+
+			if res.PooledMetrics.PSNR.Min == 0 {
+				t.Error("Unexpected value 0 for pooled metric PSNR.Min")
+			}
+			if res.PooledMetrics.PSNR.Max == 0 {
+				t.Error("Unexpected value 0 for pooled metric PSNR.Max")
+			}
+			if res.PooledMetrics.PSNR.Mean == 0 {
+				t.Error("Unexpected value 0 for pooled metric PSNR.Mean")
+			}
+			if res.PooledMetrics.PSNR.HarmonicMean == 0 {
+				t.Error("Unexpected value 0 for pooled metric PSNR.HarmonicMean")
+			}
+
+			if res.PooledMetrics.VMAF.Min == 0 {
+				t.Error("Unexpected value 0 for pooled metric VMAF.Min")
+			}
+			if res.PooledMetrics.VMAF.Max == 0 {
+				t.Error("Unexpected value 0 for pooled metric VMAF.Max")
+			}
+			if res.PooledMetrics.VMAF.Mean == 0 {
+				t.Error("Unexpected value 0 for pooled metric VMAF.Mean")
+			}
+			if res.PooledMetrics.VMAF.HarmonicMean == 0 {
+				t.Error("Unexpected value 0 for pooled metric VMAF.HarmonicMean")
+			}
+		})
+	}
 }
