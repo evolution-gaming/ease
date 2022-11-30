@@ -15,7 +15,7 @@ import (
 )
 
 var (
-	metricsFile = "../../testdata/vqm/ffmpeg_vmaf.json"
+	metricsFile = "../../testdata/vqm/libvmaf_v2.3.1.json"
 	// Expected count of metrics from metricsFile.
 	wantMetricCount       = 10
 	frameMetricsFile      = "../../testdata/vqm/frame_metrics.json"
