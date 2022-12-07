@@ -18,11 +18,8 @@ import (
 	"github.com/evolution-gaming/ease/internal/analysis"
 	"github.com/evolution-gaming/ease/internal/encoding"
 	"github.com/evolution-gaming/ease/internal/logging"
-	"github.com/evolution-gaming/ease/internal/tools"
 	"github.com/evolution-gaming/ease/internal/vqm"
 )
-
-const reportFileName = "report.json"
 
 // CreateRunCommand will create Commander instance from App.
 func CreateRunCommand() Commander {
@@ -33,9 +30,12 @@ metrics. This flag is mandatory.
 Examples:
 
   ease run -plan plan.json -out-dir path/to/output/dir`
+
 	app := &App{
 		fs: flag.NewFlagSet("run", flag.ContinueOnError),
+		gf: globalFlags{},
 	}
+	app.gf.Register(app.fs)
 	app.fs.StringVar(&app.flPlan, "plan", "", "Encoding plan configuration file")
 	app.fs.StringVar(&app.flOutDir, "out-dir", "", "Output directory to store results")
 	app.fs.BoolVar(&app.flDryRun, "dry-run", false, "Do not actually run, just do checks and validation")
@@ -51,26 +51,18 @@ var _ Commander = (*App)(nil)
 
 // App is subcommand application context that implements Commander interface.
 type App struct {
+	// Configuration object
+	cfg *Config
 	// FlagSet instance
 	fs *flag.FlagSet
-	// Encoding plan config file flag
+	// Optional configuration file
 	flPlan string
 	// Output directory for analysis results
 	flOutDir string
+	// Global flags
+	gf globalFlags
 	// Dry run mode flag
 	flDryRun bool
-	// ffmpeg tool's path
-	ffmpegPath string
-	// VMAF model path
-	libvmafModelPath string
-}
-
-func (a *App) Name() string {
-	return a.fs.Name()
-}
-
-func (a *App) Help() {
-	a.fs.Usage()
 }
 
 // init will do App state initialization.
@@ -78,13 +70,17 @@ func (a *App) init(args []string) error {
 	if err := a.fs.Parse(args); err != nil {
 		return &AppError{
 			exitCode: 2,
-			msg:      fmt.Sprintf("%s usage error", a.Name()),
+			msg:      fmt.Sprintf("%s usage error", a.fs.Name()),
 		}
+	}
+
+	if a.gf.Debug {
+		logging.EnableDebugLogger()
 	}
 
 	// Encoding plan config file is mandatory.
 	if a.flPlan == "" {
-		a.Help()
+		a.fs.Usage()
 		return &AppError{
 			exitCode: 2,
 			msg:      "mandatory option -plan is missing",
@@ -93,7 +89,7 @@ func (a *App) init(args []string) error {
 
 	// Output dir is mandatory.
 	if a.flOutDir == "" {
-		a.Help()
+		a.fs.Usage()
 		return &AppError{
 			exitCode: 2,
 			msg:      "mandatory option -out-dir is missing",
@@ -102,7 +98,7 @@ func (a *App) init(args []string) error {
 
 	// Encoding plan config file should exist.
 	if _, err := os.Stat(a.flPlan); err != nil {
-		a.Help()
+		a.fs.Usage()
 		return &AppError{
 			exitCode: 2,
 			msg:      fmt.Sprintf("encoding plan file does not exist? %s", err),
@@ -113,24 +109,13 @@ func (a *App) init(args []string) error {
 	if isNonEmptyDir(a.flOutDir) {
 		return &AppError{exitCode: 1, msg: fmt.Sprintf("non-empty out dir: %s", a.flOutDir)}
 	}
-	// Check external tool dependencies - we require ffprobe to do bitrate calculations.
-	if _, err := tools.FfprobePath(); err != nil {
-		return &AppError{exitCode: 1, msg: fmt.Sprintf("dependency ffprobe: %s", err)}
-	}
 
-	// Check external tool dependencies - for VMAF calculations we require
-	// ffmpeg and libvmaf model file available.
-	ffmpegPath, err := tools.FfmpegPath()
+	// Load application configuration.
+	c, err := LoadConfig(a.gf.ConfFile)
 	if err != nil {
-		return &AppError{exitCode: 1, msg: fmt.Sprintf("dependency ffmpeg: %s", err)}
+		return &AppError{exitCode: 1, msg: err.Error()}
 	}
-	a.ffmpegPath = ffmpegPath
-
-	libvmafModelPath, err := tools.FindLibvmafModel()
-	if err != nil {
-		return &AppError{exitCode: 1, msg: fmt.Sprintf("dependency libvmaf model: %s", err)}
-	}
-	a.libvmafModelPath = libvmafModelPath
+	a.cfg = &c
 
 	return nil
 }
@@ -155,7 +140,16 @@ func (a *App) encode(plan encoding.Plan) (*report, error) {
 	for i := range result.RunResults {
 		r := &result.RunResults[i]
 		resFile := strings.TrimSuffix(r.CompressedFile, filepath.Ext(r.CompressedFile)) + "_vqm.json"
-		vqmTool, err2 := vqm.NewFfmpegVMAF(a.ffmpegPath, a.libvmafModelPath, r.CompressedFile, r.SourceFile, resFile)
+
+		// Create VMAF tool configuration.
+		vmafCfg := vqm.FfmpegVMAFConfig{
+			FfmpegPath:         a.cfg.FfmpegPath.Value(),
+			LibvmafModelPath:   a.cfg.LibvmafModelPath.Value(),
+			FfmpegVMAFTemplate: a.cfg.FfmpegVMAFTemplate.Value(),
+			ResultFile:         resFile,
+		}
+
+		vqmTool, err2 := vqm.NewFfmpegVMAF(&vmafCfg, r.CompressedFile, r.SourceFile)
 		if err2 != nil {
 			vqmFailed = true
 			logging.Infof("Error while initializing VQM tool: %s", err2)
@@ -186,7 +180,7 @@ func (a *App) encode(plan encoding.Plan) (*report, error) {
 	}
 
 	// Write report of encoding results.
-	reportPath := path.Join(a.flOutDir, reportFileName)
+	reportPath := path.Join(a.flOutDir, a.cfg.ReportFileName.Value())
 	reportOut, err := os.Create(reportPath)
 	if err != nil {
 		return rep, &AppError{
@@ -270,7 +264,7 @@ func (a *App) analyse(rep *report) error {
 			msssims = append(msssims, v.MS_SSIM)
 		}
 
-		if err := analysis.MultiPlotBitrate(compressedFile, bitratePlot); err != nil {
+		if err := analysis.MultiPlotBitrate(compressedFile, bitratePlot, a.cfg.FfprobePath.Value()); err != nil {
 			return &AppError{
 				msg:      fmt.Sprintf("failed creating bitrate plot: %s", err),
 				exitCode: 1,
@@ -310,6 +304,12 @@ func (a *App) analyse(rep *report) error {
 func (a *App) Run(args []string) error {
 	if err := a.init(args); err != nil {
 		return err
+	}
+
+	logging.Debugf("Application configuration: %#v", a.cfg)
+	// Check if configuration is valid.
+	if err := a.cfg.Verify(); err != nil {
+		return &AppError{exitCode: 1, msg: fmt.Sprintf("configuration validation: %s", err)}
 	}
 
 	logging.Debugf("Encoding plan config file: %v", a.flPlan)

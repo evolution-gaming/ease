@@ -12,6 +12,8 @@ implemented:
 - `ease run`
 - `ease bitrate`
 - `ease vqmplot`
+- `ease dump-conf`
+- `ease version`
 
 ## Intended usage workflow
 
@@ -38,7 +40,7 @@ Where `encoding_plan.json` defines all encoder runs - essentially an batch encod
 configuration and `results` is a directory where all by-products of encoding will be
 saved.
 
-Full list of options are as follows (from `ease encode -h`):
+Full list of options are as follows (from `ease run -h`):
 
 >  -plan string
 >
@@ -59,6 +61,11 @@ report `report.json`, actual compressed clips, encoder logs, VQM logs, VQM plots
 
 Will perform a "dry run" of "encoding plan". Meaning will do validation of
 configuration and other checks - no actual encodings will be performed.
+
+>  -conf string
+>     Application configuration file path (optional)
+
+User can specify path to ease configuration file.
 
 ## Encoding plan
 
@@ -172,10 +179,17 @@ is a subdirectory containing VQM plots `*.png` files.
 
 ## Other subcommands
 
-For convenience purposes there are also 2 other subcommands - namely `bitrate`
-and `vqmplot`, these will create bitrate plot for a given video file and create
-VQM plot from *libvmaf* generated JSON report accordingly. Again, consult each
-subcommand's help e.g. `ease bitrate -h` and `ease vqmplot -h` for full help.
+For convenience purposes there are also few other subcommands - namely `bitrate`,
+`vqmplot`, `dump-conf` and `version`.
+
+`bitrate` and `vqmplot` will create bitrate plot for a given video file and create VQM
+plot from *libvmaf* generated JSON report accordingly. Again, consult each subcommand's
+help e.g. `ease bitrate -h` and `ease vqmplot -h` for full help.
+
+`version` will print `ease` tool version.
+
+`dump-conf` will print application configuration in JSON format. This configuration can be
+overridden via a configuration file and can be used via `-conf` flag for most subcommands.
 
 Examples `bitrate` usage:
 

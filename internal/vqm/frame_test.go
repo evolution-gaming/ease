@@ -7,11 +7,11 @@ package vqm
 import (
 	"bytes"
 	"io"
-	"log"
 	"os"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 var (
@@ -22,42 +22,28 @@ var (
 	wantFrameMetricsCount = 2158
 )
 
-func fixLoadVmafJSONMetrics() io.Reader {
+func fixLoadVmafJSONMetrics(t *testing.T) io.Reader {
 	given, err := os.ReadFile(metricsFile)
-	if err != nil {
-		log.Panicf("Error reading %s: %s", metricsFile, err)
-	}
+	assert.NoError(t, err)
 	return bytes.NewReader(given)
 }
 
 func TestFrameMetrics_FromFfmpegVMAF(t *testing.T) {
 	var got FrameMetrics
 
-	if err := got.FromFfmpegVMAF(fixLoadVmafJSONMetrics()); err != nil {
-		t.Fatalf("Unexpected error: %s", err)
-	}
+	err := got.FromFfmpegVMAF(fixLoadVmafJSONMetrics(t))
+	require.NoError(t, err)
 
 	t.Run("Should have correct metrics count", func(t *testing.T) {
-		gotMetricCount := len(got)
-		if diff := cmp.Diff(wantMetricCount, gotMetricCount); diff != "" {
-			t.Errorf("FrameMetric count mismatch (-want +got):\n%s", diff)
-		}
+		assert.Len(t, got, wantMetricCount)
 	})
 
 	t.Run("FrameMetric should have correct fields", func(t *testing.T) {
 		for i, v := range got {
-			if diff := cmp.Diff(uint(i), v.FrameNum); diff != "" {
-				t.Errorf("FrameNum mismatch (-want +got):\n%s", diff)
-			}
-			if !(v.VMAF > 0) {
-				t.Errorf("VMAF should be positive, got: %v", v.VMAF)
-			}
-			if !(v.PSNR > 0) {
-				t.Errorf("PSNR should be positive, got: %v", v.VMAF)
-			}
-			if !(v.MS_SSIM > 0) {
-				t.Errorf("MS_SSIM should be positive, got: %v", v.VMAF)
-			}
+			assert.EqualValues(t, i, v.FrameNum)
+			assert.Greater(t, v.VMAF, float64(0), "VMAF should be positive")
+			assert.Greater(t, v.PSNR, float64(0), "PSNR should be positive")
+			assert.Greater(t, v.MS_SSIM, float64(0), "MS-SSIM should be positive")
 		}
 	})
 }
@@ -71,26 +57,18 @@ func TestFrameMetrics_ToJSON(t *testing.T) {
 
 	t.Run("Marshal-unmarshal roundtrip should work", func(t *testing.T) {
 		wantJSON, err := os.ReadFile(frameMetricsFile)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 
 		// Unmarshal into FrameMetrics: JSON -> FrameMetrics.
-		if err := metrics.FromJSON(bytes.NewBuffer(wantJSON)); err != nil {
-			t.Fatalf("Unable to unmarshal: %v", err)
-		}
+		err2 := metrics.FromJSON(bytes.NewBuffer(wantJSON))
+		require.NoError(t, err2)
+		assert.Len(t, metrics, wantFrameMetricsCount, "FrameMetrics count mismatch")
 
-		if diff := cmp.Diff(wantFrameMetricsCount, len(metrics)); diff != "" {
-			t.Errorf("FrameMetrics count mismatch (-want +got):\n%s", diff)
-		}
 		// Marshal back to JSON: FrameMetrics -> JSON.
-		if err := metrics.ToJSON(&gotJSON); err != nil {
-			t.Fatal(err)
-		}
+		err3 := metrics.ToJSON(&gotJSON)
+		require.NoError(t, err3)
 
-		if diff := cmp.Diff(wantJSON, gotJSON.Bytes()); diff != "" {
-			t.Errorf("FrameMetrics JSON mismatch (-want +got):\n%s", diff)
-		}
+		assert.JSONEq(t, string(wantJSON), gotJSON.String())
 	})
 }
 
@@ -98,28 +76,18 @@ func TestFrameMetrics_FromJSON(t *testing.T) {
 	t.Run("Should Unmarshal from valid JSON into FrameMetrics", func(t *testing.T) {
 		var fm FrameMetrics
 		j, err := os.Open(frameMetricsFile)
-		if err != nil {
-			t.Fatalf("Unexpected error opening JSON file: %v", err)
-		}
+		require.NoError(t, err)
 
-		if err := fm.FromJSON(j); err != nil {
-			t.Fatalf("Unexpected error unmarshaling JSON: %v", err)
-		}
+		err2 := fm.FromJSON(j)
+		require.NoError(t, err2)
 
-		wantCount := wantFrameMetricsCount
-		gotCount := len(fm)
-
-		if diff := cmp.Diff(wantCount, gotCount); diff != "" {
-			t.Errorf("Metrics count mismatch (-want +got):\n%s", diff)
-		}
+		assert.Len(t, fm, wantFrameMetricsCount)
 	})
 	t.Run("Unsuccessful Unmarshal from empty", func(t *testing.T) {
 		var fm FrameMetrics
 
 		j := bytes.NewBuffer([]byte{})
 		err := fm.FromJSON(j)
-		if err == nil {
-			t.Error("Expecting error, got <nil>")
-		}
+		assert.Error(t, err)
 	})
 }

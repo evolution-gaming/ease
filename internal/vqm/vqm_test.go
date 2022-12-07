@@ -10,7 +10,8 @@ import (
 	"testing"
 
 	"github.com/evolution-gaming/ease/internal/tools"
-	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestFfmpegVMAFImplementsMeasurer(t *testing.T) {
@@ -32,42 +33,30 @@ func TestFfmpegVMAF(t *testing.T) {
 
 	t.Run("NewFfmpegVMAF creates new VQM tool", func(t *testing.T) {
 		var err error
-		tool, err = NewFfmpegVMAF(ffmpegExePath, libvmafModelPath, compressedFile, srcFile, resultFile)
-		if err != nil {
-			t.Errorf("Unexpected error when calling NewFfmpegVMAF(): %v", err)
-		}
+		tool, err = NewFfmpegVMAF(&FfmpegVMAFConfig{
+			FfmpegPath:         ffmpegExePath,
+			LibvmafModelPath:   libvmafModelPath,
+			FfmpegVMAFTemplate: DefaultFfmpegVMAFTemplate,
+			ResultFile:         resultFile,
+		}, compressedFile, srcFile)
+		assert.NoError(t, err)
 	})
 
 	t.Run("Call Measure()", func(t *testing.T) {
 		err := tool.Measure()
-		if err != nil {
-			t.Errorf("Unexpected error calling Measure(): %v", err)
-			vt, ok := tool.(*ffmpegVMAF)
-			if ok {
-				t.Logf("Tool path: %s\nWith output:\n%s", vt.exePath, vt.output)
-			}
-		}
+		assert.NoError(t, err)
 	})
 
 	t.Run("Call GetResult()", func(t *testing.T) {
 		var err error
 		result, err = tool.GetResult()
-		if err != nil {
-			t.Errorf("Unexpected error calling GetResult(): %v", err)
-		}
-		t.Logf("result: %v", result)
+		assert.NoError(t, err)
 	})
 
 	t.Run("VideoQualityResult should have metrics", func(t *testing.T) {
-		if result.Metrics.PSNR == 0 {
-			t.Errorf("No PSNR metric detected: %#v", result)
-		}
-		if result.Metrics.VMAF == 0 {
-			t.Errorf("No VMAF metric detected: %#v", result)
-		}
-		if result.Metrics.MS_SSIM == 0 {
-			t.Errorf("No MS-SSIM metric detected: %#v", result)
-		}
+		assert.NotEqual(t, result.Metrics.VMAF, 0, "No VMAF metric detected")
+		assert.NotEqual(t, result.Metrics.PSNR, 0, "No PSNR metric detected")
+		assert.NotEqual(t, result.Metrics.MS_SSIM, 0, "No MS-SSIM metric detected")
 	})
 }
 
@@ -80,52 +69,53 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 		srcFile := "../../testdata/video/testsrc01.mp4"
 		compressedFile := "../../testdata/video/testsrc01.mp4"
 		resultFile := t.TempDir() + "/result.json"
-		tool, err := NewFfmpegVMAF(ffmpegExePath, libvmafModelPath, compressedFile, srcFile, resultFile)
-		if err != nil {
-			t.Errorf("Unexpected error when calling NewFfmpegVMAF(): %v", err)
-		}
+		tool, err := NewFfmpegVMAF(&FfmpegVMAFConfig{
+			FfmpegPath:         ffmpegExePath,
+			LibvmafModelPath:   libvmafModelPath,
+			FfmpegVMAFTemplate: DefaultFfmpegVMAFTemplate,
+			ResultFile:         resultFile,
+		}, compressedFile, srcFile)
+
+		assert.NoError(t, err)
+
 		return tool
 	}
+
+	// Invalid tool fixture.
 	getInvalidTool := func() Measurer {
 		srcFile := "nonexistent-source"
 		compressedFile := "non-existent-compressed"
 		resultFile := t.TempDir() + "/result.json"
-		tool, err := NewFfmpegVMAF(ffmpegExePath, libvmafModelPath, compressedFile, srcFile, resultFile)
-		if err != nil {
-			t.Errorf("Unexpected error when calling NewFfmpegVMAF(): %v", err)
-		}
+		tool, err := NewFfmpegVMAF(&FfmpegVMAFConfig{
+			FfmpegPath:         ffmpegExePath,
+			LibvmafModelPath:   libvmafModelPath,
+			FfmpegVMAFTemplate: DefaultFfmpegVMAFTemplate,
+			ResultFile:         resultFile,
+		}, compressedFile, srcFile)
+
+		assert.NoError(t, err)
+
 		return tool
 	}
 
 	t.Run("Call GetResult() before Measure() should error", func(t *testing.T) {
+		wantErrMsg := "GetResult() depends on Measure() called first"
 		tool := getValidTool()
 		_, err := tool.GetResult()
-		if err == nil {
-			t.Fatal("Expecting error if GetResult() called before Measure()")
-		}
-		gotErrMsg := err.Error()
-		wantErrMsg := "GetResult() depends on Measure() called first"
-		if diff := cmp.Diff(wantErrMsg, gotErrMsg); diff != "" {
-			t.Errorf("Result() error mismatch (-want +got):\n%s", diff)
-		}
+		require.Error(t, err)
+		assert.ErrorContains(t, err, wantErrMsg)
 	})
 	t.Run("Second call to Measure() should error", func(t *testing.T) {
 		tool := getValidTool()
 		// First call is fine.
-		if err := tool.Measure(); err != nil {
-			t.Fatalf("Unexpected error from first call to Measure(): %v", err)
-		}
+		assert.NoError(t, tool.Measure(), "Unexpected error from first call to Measure()")
 
 		// Second call errors.
-		if err := tool.Measure(); err == nil {
-			t.Error("Expected error from second call to Measure() but go nil")
-		}
+		assert.Error(t, tool.Measure(), "Expected error from second call to Measure()")
 	})
 	t.Run("Calling Measure() on invalid tool should error", func(t *testing.T) {
 		tool := getInvalidTool()
-		if err := tool.Measure(); err == nil {
-			t.Errorf("Expected error when calling Measure() on invalid tool")
-		}
+		assert.Error(t, tool.Measure(), "Expected error calling Measure() on invalid tool")
 	})
 }
 
@@ -146,61 +136,34 @@ func Test_ffmpegVMAFResult_UnmarshalVersions(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			jsonDoc, err := os.ReadFile(tt.resultFile)
-			if err != nil {
-				t.Fatalf("Unexpected error reading %s: %s", tt.resultFile, err)
-			}
+			assert.NoError(t, err)
 
 			res := &ffmpegVMAFResult{}
-			if err := json.Unmarshal(jsonDoc, res); err != nil {
-				t.Fatalf("Unexpected error from unmarshaling: %s", err)
-			}
+			err2 := json.Unmarshal(jsonDoc, res)
+			require.NoError(t, err2)
 
 			// Check that per-frame VQM values were properly unmarshalled (should not be 0).
-			for i, v := range res.Frames {
-				if v.Metrics.MS_SSIM == 0 || v.Metrics.PSNR == 0 || v.Metrics.VMAF == 0 {
-					t.Errorf("Unexpected metric value for frame %v", i)
-				}
+			for _, v := range res.Frames {
+				assert.NotEqual(t, v.Metrics.VMAF, 0)
+				assert.NotEqual(t, v.Metrics.PSNR, 0)
+				assert.NotEqual(t, v.Metrics.MS_SSIM, 0)
 			}
 
 			// Check that pooled metric values were properly unmarshalled (should not be 0).
-			if res.PooledMetrics.MS_SSIM.Min == 0 {
-				t.Error("Unexpected value 0 for pooled metric MS_SSIM.Min")
-			}
-			if res.PooledMetrics.MS_SSIM.Max == 0 {
-				t.Error("Unexpected value 0 for pooled metric MS_SSIM.Max")
-			}
-			if res.PooledMetrics.MS_SSIM.Mean == 0 {
-				t.Error("Unexpected value 0 for pooled metric MS_SSIM.Mean")
-			}
-			if res.PooledMetrics.MS_SSIM.HarmonicMean == 0 {
-				t.Error("Unexpected value 0 for pooled metric MS_SSIM.HarmonicMean")
-			}
+			assert.NotEqual(t, res.PooledMetrics.MS_SSIM.Min, 0)
+			assert.NotEqual(t, res.PooledMetrics.MS_SSIM.Max, 0)
+			assert.NotEqual(t, res.PooledMetrics.MS_SSIM.Mean, 0)
+			assert.NotEqual(t, res.PooledMetrics.MS_SSIM.HarmonicMean, 0)
 
-			if res.PooledMetrics.PSNR.Min == 0 {
-				t.Error("Unexpected value 0 for pooled metric PSNR.Min")
-			}
-			if res.PooledMetrics.PSNR.Max == 0 {
-				t.Error("Unexpected value 0 for pooled metric PSNR.Max")
-			}
-			if res.PooledMetrics.PSNR.Mean == 0 {
-				t.Error("Unexpected value 0 for pooled metric PSNR.Mean")
-			}
-			if res.PooledMetrics.PSNR.HarmonicMean == 0 {
-				t.Error("Unexpected value 0 for pooled metric PSNR.HarmonicMean")
-			}
+			assert.NotEqual(t, res.PooledMetrics.VMAF.Min, 0)
+			assert.NotEqual(t, res.PooledMetrics.VMAF.Max, 0)
+			assert.NotEqual(t, res.PooledMetrics.VMAF.Mean, 0)
+			assert.NotEqual(t, res.PooledMetrics.VMAF.HarmonicMean, 0)
 
-			if res.PooledMetrics.VMAF.Min == 0 {
-				t.Error("Unexpected value 0 for pooled metric VMAF.Min")
-			}
-			if res.PooledMetrics.VMAF.Max == 0 {
-				t.Error("Unexpected value 0 for pooled metric VMAF.Max")
-			}
-			if res.PooledMetrics.VMAF.Mean == 0 {
-				t.Error("Unexpected value 0 for pooled metric VMAF.Mean")
-			}
-			if res.PooledMetrics.VMAF.HarmonicMean == 0 {
-				t.Error("Unexpected value 0 for pooled metric VMAF.HarmonicMean")
-			}
+			assert.NotEqual(t, res.PooledMetrics.PSNR.Min, 0)
+			assert.NotEqual(t, res.PooledMetrics.PSNR.Max, 0)
+			assert.NotEqual(t, res.PooledMetrics.PSNR.Mean, 0)
+			assert.NotEqual(t, res.PooledMetrics.PSNR.HarmonicMean, 0)
 		})
 	}
 }

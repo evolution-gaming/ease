@@ -11,7 +11,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 )
 
 func Test_extractSourceData(t *testing.T) {
@@ -40,23 +40,16 @@ func Test_extractSourceData(t *testing.T) {
 	}
 
 	got := extractSourceData(given)
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("extractSourceData result mismatch (-want +got):\n%s", diff)
-	}
+	assert.Equal(t, want, got)
 }
 
 func Test_parseReportFile(t *testing.T) {
 	got := parseReportFile("testdata/encoding_artifacts/report.json")
-	t.Run("Should have RunResults", func(t *testing.T) {
-		if len(got.EncodingResult.RunResults) != 4 {
-			t.Error("Expecting 4 elements in RunResults")
-		}
-	})
-	t.Run("Should have VQMResults", func(t *testing.T) {
-		if len(got.VQMResults) != 4 {
-			t.Error("Expecting 4 elements in VQMResults")
-		}
-	})
+	t.Log("Should have RunResults")
+	assert.Len(t, got.EncodingResult.RunResults, 4)
+
+	t.Log("Should have VQMResults")
+	assert.Len(t, got.VQMResults, 4)
 }
 
 func Test_report_WriteJSON(t *testing.T) {
@@ -68,12 +61,8 @@ func Test_report_WriteJSON(t *testing.T) {
 	parsedReport.WriteJSON(&got)
 
 	want, err := os.ReadFile(reportFile)
-	if err != nil {
-		t.Errorf("Unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 	wantStr := strings.TrimRight(string(want), "\n")
 
-	if diff := cmp.Diff(wantStr, got.String()); diff != "" {
-		t.Errorf("JSON roundtrip failed (-want +got):\n%s", diff)
-	}
+	assert.Equal(t, wantStr, got.String())
 }

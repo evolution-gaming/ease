@@ -11,14 +11,14 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Happy path functional test for run sub-command.
-func TestRunApp_Run(t *testing.T) {
+func Test_RunApp_Run(t *testing.T) {
 	tempDir := t.TempDir()
 	ePlan := fixPlanConfig(t)
 	outDir := path.Join(tempDir, "out")
@@ -26,55 +26,61 @@ func TestRunApp_Run(t *testing.T) {
 	t.Log("Should succeed execution with -plan flag")
 	// Run command will generate encoding artifacts and analysis artifacts.
 	err := CreateRunCommand().Run([]string{"-plan", ePlan, "-out-dir", outDir})
-	if err != nil {
-		t.Errorf("Unexpected error running encode: %v", err)
-	}
+	assert.NoError(t, err, "Unexpected error running encode")
 
 	buf, err2 := os.ReadFile(path.Join(outDir, "report.json"))
-	if err2 != nil {
-		t.Errorf("Unexpected error: %v", err2)
-	}
-	if len(buf) == 0 {
-		t.Errorf("No data in report file")
-	}
+	assert.NoError(t, err2, "Unexpected error reading report.json")
+	assert.Greater(t, len(buf), 0, "No data in report file")
 
 	t.Log("Analyse should create bitrate, VMAF, PSNR and SSIM plots")
-	if m, _ := filepath.Glob(fmt.Sprintf("%s/*/*bitrate.png", outDir)); len(m) != 1 {
-		t.Errorf("Expecting one file for bitrate plot, got: %s", m)
-	}
-	if m, _ := filepath.Glob(fmt.Sprintf("%s/*/*vmaf.png", outDir)); len(m) != 1 {
-		t.Errorf("Expecting one file for VMAF plot, got: %s", m)
-	}
-	if m, _ := filepath.Glob(fmt.Sprintf("%s/*/*psnr.png", outDir)); len(m) != 1 {
-		t.Errorf("Expecting one file for PSNR plot, got: %s", m)
-	}
-	if m, _ := filepath.Glob(fmt.Sprintf("%s/*/*ms-ssim.png", outDir)); len(m) != 1 {
-		t.Errorf("Expecting one file for MS-SSIM plot, got: %s", m)
-	}
+	bitratePlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*bitrate.png", outDir))
+	assert.Len(t, bitratePlots, 1, "Expecting one file for bitrate plot")
+
+	vmafPlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*vmaf.png", outDir))
+	assert.Len(t, vmafPlots, 1, "Expecting one file for VMAF plot")
+
+	psnrPlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*psnr.png", outDir))
+	assert.Len(t, psnrPlots, 1, "Expecting one file for PSNR plot")
+
+	msssimPlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*ms-ssim.png", outDir))
+	assert.Len(t, msssimPlots, 1, "Expecting one file for MS-SSIM plot")
 }
 
+/*************************************
+* Negative tests for run sub-command.
+ *************************************/
+
 // Error cases for run sub-command flags.
-func TestRunApp_FlagErrors(t *testing.T) {
+func Test_RunApp_Run_FlagErrors(t *testing.T) {
+	// For some cases we need existing plan config file.
+	planConfig := fixPlanConfig(t)
+
+	tempDir := t.TempDir()
+
 	tests := map[string]struct {
 		// substring in Error()
 		want      string
 		givenArgs []string
 	}{
 		"Wrong flags": {
-			givenArgs: []string{"-zzz", "aaaa", "-plan", "a/xxx", "-out-dir", "out"},
+			givenArgs: []string{"-zzz", "aaaa", "-plan", planConfig, "-out-dir", path.Join(tempDir, "out1")},
 			want:      "run usage error",
 		},
 		"Mandatory plan flag missing": {
-			givenArgs: []string{"-out-dir", "out"},
+			givenArgs: []string{"-out-dir", path.Join(tempDir, "out2")},
 			want:      "mandatory option -plan is missing",
 		},
 		"Mandatory out-dir flag missing": {
-			givenArgs: []string{"-plan", "a/xxx"},
+			givenArgs: []string{"-plan", planConfig},
 			want:      "mandatory option -out-dir is missing",
 		},
-		"Non-existent conf": {
-			givenArgs: []string{"-plan", "a/yyy", "-out-dir", "out"},
+		"Non-existent plan": {
+			givenArgs: []string{"-plan", "a/yyy", "-out-dir", path.Join(tempDir, "out3")},
 			want:      "encoding plan file does not exist?",
+		},
+		"Non-existent config file": {
+			givenArgs: []string{"-conf", "missing-conf.json", "-plan", planConfig, "-out-dir", path.Join(tempDir, "out4v")},
+			want:      "no such file or directory",
 		},
 		"Empty flags": {
 			givenArgs: []string{},
@@ -91,18 +97,12 @@ func TestRunApp_FlagErrors(t *testing.T) {
 				c.fs.SetOutput(io.Discard)
 			}
 			gotErr := cmd.Run(tc.givenArgs)
-			if !strings.Contains(gotErr.Error(), tc.want) {
-				t.Errorf("Error mismatch (-want +got):\n-%s\n+%s\n", tc.want, gotErr.Error())
-			}
+			assert.ErrorContains(t, gotErr, tc.want)
 		})
 	}
 }
 
-/*************************************
-* Negative tests for run sub-command.
- *************************************/
-
-func TestRunApp_Run_WithFailedVQM(t *testing.T) {
+func Test_RunApp_Run_WithFailedVQM(t *testing.T) {
 	// Create a fake ffmpeg and modify PATH so that it's picked up first and
 	// blows up VQM calculation.
 	fixCreateFakeFfmpegAndPutItOnPath(t)
@@ -111,71 +111,61 @@ func TestRunApp_Run_WithFailedVQM(t *testing.T) {
 	plan := fixPlanConfig(t)
 	outDir := path.Join(t.TempDir(), "out")
 
-	gotErr := app.Run([]string{"-plan", plan, "-out-dir", outDir})
-	if gotErr == nil {
-		t.Fatal("Error expected but go <nil>")
-	}
 	wantErrMsg := "VQM calculations had errors, see log for reasons"
 	wantExitCode := 1
-
-	if diff := cmp.Diff(wantErrMsg, gotErr.Error()); diff != "" {
-		t.Errorf("Error message mismatch (-want +got):\n%s", diff)
-	}
+	gotErr := app.Run([]string{"-plan", plan, "-out-dir", outDir})
+	assert.ErrorContains(t, gotErr, wantErrMsg)
 
 	gotExitCode := gotErr.(*AppError).ExitCode()
-	if diff := cmp.Diff(wantExitCode, gotExitCode); diff != "" {
-		t.Errorf("ExitCode mismatch (-want +got):\n%s", diff)
-	}
+	assert.Equal(t, wantExitCode, gotExitCode, "Exit code mismatch")
 }
 
-func TestRunApp_Run_WithInvalidPlanConfigParseError(t *testing.T) {
+func Test_RunApp_Run_WithInvalidPlanConfigParseError(t *testing.T) {
 	app := CreateRunCommand()
-	gotErr := app.Run([]string{"-plan", fixPlanConfigInvalid(t), "-out-dir", t.TempDir()})
-	if gotErr == nil {
-		t.Fatal("Error expected but go <nil>")
-	}
 	wantErrMsg := "PlanConfig not valid: validation error with reasons"
 	wantExitCode := 1
 
-	if !strings.HasPrefix(gotErr.Error(), wantErrMsg) {
-		t.Errorf("Error message mismatch (-want +got):\n-%s\n+%s", wantErrMsg, gotErr.Error())
-	}
+	gotErr := app.Run([]string{"-plan", fixPlanConfigInvalid(t), "-out-dir", t.TempDir()})
+	assert.ErrorContains(t, gotErr, wantErrMsg)
 
 	gotExitCode := gotErr.(*AppError).ExitCode()
-	if diff := cmp.Diff(wantExitCode, gotExitCode); diff != "" {
-		t.Errorf("ExitCode mismatch (-want +got):\n%s", diff)
-	}
+	assert.Equal(t, wantExitCode, gotExitCode, "Exit code mismatch")
 }
 
-func TestRunApp_Run_WithNonEmptyOutDirShouldTerminate(t *testing.T) {
+func Test_RunApp_Run_WithNonEmptyOutDirShouldTerminate(t *testing.T) {
 	app := CreateRunCommand()
 	plan := fixPlanConfig(t)
 	// Dir containing plan file by definition is non-empty.
 	outDir := path.Dir(plan)
 
 	t.Logf("Given existing out dir: %s", outDir)
-	if err := os.MkdirAll(outDir, 0o755); err != nil {
-		t.Fatalf("Cannot create out dir: %s", err)
-	}
+	require.NoError(t, os.MkdirAll(outDir, 0o755))
 
 	t.Log("When plan is executed")
 	gotErr := app.Run([]string{"-plan", plan, "-out-dir", outDir})
 
 	t.Log("Then there is an error and program terminates")
-	if gotErr == nil {
-		t.Fatal("Error expected but go <nil>")
-	}
 	wantErrMsg := "non-empty out dir"
+	assert.ErrorContains(t, gotErr, wantErrMsg)
+
 	wantExitCode := 1
-
-	if !strings.HasPrefix(gotErr.Error(), wantErrMsg) {
-		t.Errorf("Error message mismatch (-want +got):\n-%s\n+%s", wantErrMsg, gotErr.Error())
-	}
-
 	gotExitCode := gotErr.(*AppError).ExitCode()
-	if diff := cmp.Diff(wantExitCode, gotExitCode); diff != "" {
-		t.Errorf("ExitCode mismatch (-want +got):\n%s", diff)
-	}
+	assert.Equal(t, wantExitCode, gotExitCode, "Exit code mismatch")
+}
+
+func Test_RunApp_Run_WithInvalidApplicationConfig(t *testing.T) {
+	invalidConfig := []byte(`{}`)
+	confFile := path.Join(t.TempDir(), "wrong.json")
+	// Empty configuration is wrong configuration. When we explicitly specify
+	// configuration file, we expect all options to be defined.
+	err := os.WriteFile(confFile, invalidConfig, 0o600)
+	require.NoError(t, err)
+
+	app := CreateRunCommand()
+	gotErr := app.Run([]string{"-plan", fixPlanConfigInvalid(t), "-out-dir", t.TempDir(), "-conf", confFile})
+
+	var expErr *AppError
+	assert.ErrorAs(t, gotErr, &expErr, "Expecting error of type AppError")
 }
 
 // Functional tests for other sub-commands..
@@ -187,29 +177,21 @@ func TestIntegration_AllSubcommands(t *testing.T) {
 	// Run command will generate encoding artifacts and analysis artifacts for later use
 	// ans inputs.
 	err := CreateRunCommand().Run([]string{"-plan", ePlan, "-out-dir", outDir})
-	if err != nil {
-		t.Fatalf("Unexpected during plan execution: %v", err)
-	}
+	require.NoError(t, err)
 
 	t.Run("Vqmplot should create plots", func(t *testing.T) {
 		var vqmFile string
 		// Need to get file with VQMs from encode stage.
-		if m, _ := filepath.Glob(fmt.Sprintf("%s/*vqm.json", outDir)); len(m) != 1 {
-			t.Errorf("Expecting one file with VQM data, got: %s", m)
-		} else {
-			vqmFile = m[0]
-		}
+		m, _ := filepath.Glob(fmt.Sprintf("%s/*vqm.json", outDir))
+		assert.Len(t, m, 1)
+		vqmFile = m[0]
 
 		for _, metric := range []string{"VMAF", "PSNR", "MS-SSIM"} {
 			t.Run(metric, func(t *testing.T) {
 				outFile := path.Join(tempDir, fmt.Sprintf("vqmplot_%s.png", metric))
 				err := CreateVQMPlotCommand().Run([]string{"-i", vqmFile, "-o", outFile, "-m", metric})
-				if err != nil {
-					t.Errorf("Unexpected error running vqmplot: %v", err)
-				}
-				if _, err := os.Stat(outFile); os.IsNotExist(err) {
-					t.Errorf("VQM file missing: %s", outFile)
-				}
+				assert.NoError(t, err, "Unexpected error running vqmplot")
+				assert.FileExists(t, outFile, "VQM file missing")
 			})
 		}
 	})
@@ -217,19 +199,13 @@ func TestIntegration_AllSubcommands(t *testing.T) {
 	t.Run("Bitrate should create bitrate plot", func(t *testing.T) {
 		var compressedFile string
 		// Need to get compressed file from encode stage.
-		if m, _ := filepath.Glob(fmt.Sprintf("%s/*.mp4", outDir)); len(m) != 1 {
-			t.Errorf("Expecting one compressed file, got: %s", m)
-		} else {
-			compressedFile = m[0]
-		}
+		m, _ := filepath.Glob(fmt.Sprintf("%s/*.mp4", outDir))
+		assert.Len(t, m, 1)
+		compressedFile = m[0]
 
 		outFile := path.Join(tempDir, "bitrate.png")
 		err := CreateBitrateCommand().Run([]string{"-i", compressedFile, "-o", outFile})
-		if err != nil {
-			t.Errorf("Unexpected error running bitrate: %v", err)
-		}
-		if _, err := os.Stat(outFile); os.IsNotExist(err) {
-			t.Errorf("bitrate plot file missing: %s", outFile)
-		}
+		assert.NoError(t, err, "Unexpected error running bitrate")
+		assert.FileExists(t, outFile, "bitrate plot file missing")
 	})
 }

@@ -26,12 +26,16 @@ var _ Commander = (*BitrateApp)(nil)
 
 // BitrateApp is bitrate subcommand context that implements Commander interface.
 type BitrateApp struct {
+	// Configuration object
+	cfg *Config
 	// FlagSet instance
 	fs *flag.FlagSet
 	// Input video file path
 	flInFile string
 	// Plot output file
 	flOutFile string
+	// Global flags
+	gf globalFlags
 }
 
 // CreateBitrateCommand will create Commander instance from BitrateApp.
@@ -39,7 +43,9 @@ func CreateBitrateCommand() Commander {
 	longHelp := `Subcommand "bitrate" will create bitrate plot for given video file.`
 	app := &BitrateApp{
 		fs: flag.NewFlagSet("bitrate", flag.ContinueOnError),
+		gf: globalFlags{},
 	}
+	app.gf.Register(app.fs)
 	app.fs.StringVar(&app.flInFile, "i", "", "Input video file (mandatory)")
 	app.fs.StringVar(&app.flOutFile, "o", "", "File to save plot to")
 
@@ -58,8 +64,24 @@ func (a *BitrateApp) Run(args []string) error {
 		}
 	}
 
+	if a.gf.Debug {
+		logging.EnableDebugLogger()
+	}
+
+	// Load application configuration.
+	c, err := LoadConfig(a.gf.ConfFile)
+	if err != nil {
+		return &AppError{exitCode: 1, msg: err.Error()}
+	}
+	a.cfg = &c
+
+	// Check if configuration is valid.
+	if err := a.cfg.Verify(); err != nil {
+		return &AppError{exitCode: 1, msg: fmt.Sprintf("configuration validation: %s", err)}
+	}
+
 	if a.flInFile == "" {
-		a.Help()
+		a.fs.Usage()
 		return &AppError{
 			exitCode: 2,
 			msg:      "mandatory option -i is missing",
@@ -73,8 +95,8 @@ func (a *BitrateApp) Run(args []string) error {
 	}
 
 	logging.Infof("Output will be written to:\n\t%s\n", a.flOutFile)
-	err := run(a.flInFile, a.flOutFile)
-	if err != nil {
+
+	if err := run(a.flInFile, a.flOutFile, a.cfg.FfprobePath.Value()); err != nil {
 		return &AppError{
 			exitCode: 1,
 			msg:      err.Error(),
@@ -84,21 +106,13 @@ func (a *BitrateApp) Run(args []string) error {
 	return nil
 }
 
-func (a *BitrateApp) Name() string {
-	return a.fs.Name()
-}
-
-func (a *BitrateApp) Help() {
-	a.fs.Usage()
-}
-
-func run(videoFile, plotFile string) error {
+func run(videoFile, plotFile, ffprobePath string) error {
 	if _, err := os.Stat(videoFile); os.IsNotExist(err) {
 		return fmt.Errorf("video file should exist: %w", err)
 	}
 	base := path.Base(videoFile)
 
-	fs, err := analysis.GetFrameStats(videoFile)
+	fs, err := analysis.GetFrameStats(videoFile, ffprobePath)
 	if err != nil {
 		return fmt.Errorf("failed getting FrameStats: %w", err)
 	}

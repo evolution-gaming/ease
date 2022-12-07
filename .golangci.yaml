@@ -43,3 +43,4 @@ linters:
     - goimports
     - goheader
     - gosec
+    - exportloopref

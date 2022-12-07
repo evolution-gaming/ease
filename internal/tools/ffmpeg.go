@@ -18,13 +18,10 @@ import (
 )
 
 var (
-	ffprobeCmd         = "ffprobe"
-	ffprobeEnvOverride = "FFPROBE_EXE_PATH"
-	ffmpegCmd          = "ffmpeg"
-	ffmpegEnvOverride  = "FFMPEG_EXE_PATH"
+	ffprobeCmd = "ffprobe"
+	ffmpegCmd  = "ffmpeg"
 	// A specific libvmaf model file to be used when calculating VMAF score.
-	libvmafModel            = "vmaf_v0.6.1.json"
-	libvmafModelEnvOverride = "LIBVMAF_MODEL_PATH"
+	libvmafModel = "vmaf_v0.6.1.json"
 	// A list of known locations where various distributions of ffmpeg may put
 	// libvmaf models.
 	libvmafModelLocations = []string{
@@ -36,7 +33,8 @@ var (
 
 // FfmpegPath will return path to ffmpeg binary and error if path is not found.
 func FfmpegPath() (string, error) {
-	p, err := FindTool(ffmpegCmd, ffmpegEnvOverride)
+	// Look for executable in $PATH.
+	p, err := exec.LookPath(ffmpegCmd)
 	if err != nil {
 		return "", fmt.Errorf("ffmpeg not found: %w", err)
 	}
@@ -45,14 +43,14 @@ func FfmpegPath() (string, error) {
 
 // FfprobePath will return path to ffprobe binary and error if path is not found.
 func FfprobePath() (string, error) {
-	p, err := FindTool(ffprobeCmd, ffprobeEnvOverride)
+	p, err := exec.LookPath(ffprobeCmd)
 	if err != nil {
 		return "", fmt.Errorf("ffprobe not found: %w", err)
 	}
 	return p, nil
 }
 
-// FfprobeExtractMetadata will query vide file metadata via ffprobe.
+// FfprobeExtractMetadata will query video file metadata via ffprobe.
 func FfprobeExtractMetadata(videoFile string) (video.Metadata, error) {
 	var vmeta video.Metadata
 
@@ -110,13 +108,6 @@ func FfprobeExtractMetadata(videoFile string) (video.Metadata, error) {
 // XXX: Although not specifically related to ffmpeg family tools, but for time
 // being keep it here.
 func FindLibvmafModel() (string, error) {
-	// First check for model in case it's overridden via env variable.
-	if p := os.Getenv(libvmafModelEnvOverride); p != "" {
-		if _, err := os.Stat(p); err == nil {
-			return p, nil
-		}
-	}
-
 	for _, l := range libvmafModelLocations {
 		p := path.Join(l, libvmafModel)
 		if _, err := os.Stat(p); err == nil {
