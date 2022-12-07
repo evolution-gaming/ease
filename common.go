@@ -23,8 +23,6 @@ import (
 // Commander interface should be implemented by commands and sub-commands.
 type Commander interface {
 	Run([]string) error
-	Name() string
-	Help()
 }
 
 // AppError a custom error returned from CLI application.
@@ -182,4 +180,17 @@ func isNonEmptyDir(path string) bool {
 
 	n, _ := fs.Readdirnames(1)
 	return len(n) == 1
+}
+
+// fileExists is simple helper to check if file exists.
+func fileExists(p string) bool {
+	info, err := os.Lstat(p)
+	if err != nil {
+		return false
+	}
+	if info.IsDir() {
+		return false
+	}
+
+	return true
 }

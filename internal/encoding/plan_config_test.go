@@ -8,12 +8,10 @@ package encoding
 
 import (
 	"encoding/json"
-	"errors"
 	"reflect"
-	"strings"
 	"testing"
 
-	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestNewPlanConfigFromJSON(t *testing.T) {
@@ -70,17 +68,14 @@ func TestNewPlanConfigFromJSON(t *testing.T) {
 
 			if tc.err == nil {
 				// Positive scenario case when error should be absent (nil).
-				if !errors.Is(err, tc.err) {
-					t.Fatalf("Unexpected error. want %T, got %T", tc.err, err)
-				}
+				assert.NoError(t, err)
 			} else {
-				if gotE, wantE := reflect.TypeOf(err), reflect.TypeOf(tc.err); gotE != wantE {
-					t.Errorf("Error type mismatch want: %v, got: %v\n", wantE, gotE)
-				}
+				// Negative scenario with expected non-nil error.
+				gotE := reflect.TypeOf(err)
+				wantE := reflect.TypeOf(tc.err)
+				assert.Equal(t, wantE, gotE)
 			}
-			if diff := cmp.Diff(tc.want, got); diff != "" {
-				t.Errorf("PlanConfig mismatch (-want +got):\n%s", diff)
-			}
+			assert.Equal(t, tc.want, got, "PlanConfig mismatch")
 		})
 	}
 }
@@ -90,21 +85,9 @@ func TestPlanConfigIsValid(t *testing.T) {
 		Inputs:  []string{"../../testdata/video/testsrc01.mp4"},
 		Schemes: []Scheme{{}},
 	}
-	got, err := pc.IsValid()
-
-	t.Run("Should successfully validate PlanConfig", func(t *testing.T) {
-		if !got {
-			t.Errorf("PlanConfig.IsValid() validation failed for PlanConfig: %v", pc)
-		}
-	})
-	t.Run("Should have no errors", func(t *testing.T) {
-		if err != nil {
-			if e, ok := err.(*PlanConfigError); ok {
-				t.Errorf("Got PlanConfigError: %v", e)
-			}
-			t.Errorf("PlanConfig.IsValid() unexpected error: %v", err)
-		}
-	})
+	validState, err := pc.IsValid()
+	assert.True(t, validState)
+	assert.NoError(t, err)
 }
 
 func TestNegativePlanConfigIsValid(t *testing.T) {
@@ -157,21 +140,14 @@ func TestNegativePlanConfigIsValid(t *testing.T) {
 
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
-			got, err := tc.given.IsValid()
-			if !strings.HasPrefix(err.Error(), wantErrorMsg) {
-				t.Errorf("PlanConfig.IsValid() error: want=%s*, got=%v", wantErrorMsg, err)
-			}
-			if got {
-				t.Errorf("PlanConfig.IsValid() returned %v, want false", got)
-			}
+			validState, err := tc.given.IsValid()
+			assert.ErrorContains(t, err, wantErrorMsg)
+			assert.False(t, validState)
+
 			// Cast error in order to check Reasons().
 			gotErr, ok := err.(*PlanConfigError)
-			if !ok {
-				t.Errorf("PlanConfig.IsValid() returned unexpected error type, want PlanConfigError, got %T", err)
-			}
-			if diff := cmp.Diff(tc.wantReasons, gotErr.Reasons()); diff != "" {
-				t.Errorf("PlanConfigError reasons mismatch (-want +got):\n%s", diff)
-			}
+			assert.Truef(t, ok, "Unexpected error type, want PlanConfigError, got %T", err)
+			assert.Equal(t, tc.wantReasons, gotErr.Reasons())
 		})
 	}
 }
@@ -202,10 +178,7 @@ func TestHasDuplicatesTable(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			got := hasDuplicates(tc.given)
-
-			if diff := cmp.Diff(tc.want, got); diff != "" {
-				t.Errorf("HasDuplicates mismatch (-want +got):\n%s", diff)
-			}
+			assert.Equal(t, tc.want, got)
 		})
 	}
 }

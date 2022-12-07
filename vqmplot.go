@@ -32,7 +32,9 @@ Examples:
 
 	app := &VQMPlotApp{
 		fs: flag.NewFlagSet("vqmplot", flag.ContinueOnError),
+		gf: globalFlags{},
 	}
+	app.gf.Register(app.fs)
 	app.fs.StringVar(&app.flSrcFile, "i", "", "Input libvmaf JSON file (mandatory)")
 	app.fs.StringVar(&app.flOutFile, "o", "", "Output file")
 	app.fs.StringVar(&app.flMetric, "m", "VMAF", fmt.Sprintf("Metric to plot (%s)", supportedMetrics))
@@ -57,14 +59,8 @@ type VQMPlotApp struct {
 	flOutFile string
 	// Selected metric to plot
 	flMetric string
-}
-
-func (a *VQMPlotApp) Name() string {
-	return a.fs.Name()
-}
-
-func (a *VQMPlotApp) Help() {
-	a.fs.Usage()
+	// Global flags
+	gf globalFlags
 }
 
 // Run is entry point to VQMPlotApp command execution.
@@ -76,9 +72,13 @@ func (a *VQMPlotApp) Run(args []string) error {
 		}
 	}
 
+	if a.gf.Debug {
+		logging.EnableDebugLogger()
+	}
+
 	// Flag specifying libvmaf JSON metrics is mandatory.
 	if a.flSrcFile == "" {
-		a.Help()
+		a.fs.Usage()
 		return &AppError{
 			exitCode: 2,
 			msg:      "mandatory option -i is missing",
@@ -101,7 +101,7 @@ func (a *VQMPlotApp) Run(args []string) error {
 	}
 
 	if !strings.Contains(supportedMetrics, a.flMetric) {
-		a.Help()
+		a.fs.Usage()
 		return &AppError{
 			exitCode: 2,
 			msg:      fmt.Sprintf("unsupported metric, should be one of: %s\n", supportedMetrics),

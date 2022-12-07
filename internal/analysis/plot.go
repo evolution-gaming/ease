@@ -20,7 +20,6 @@ import (
 	"sort"
 
 	"github.com/evolution-gaming/ease/internal/logging"
-	"github.com/evolution-gaming/ease/internal/tools"
 	"gonum.org/v1/gonum/stat"
 	"gonum.org/v1/plot"
 	"gonum.org/v1/plot/plotter"
@@ -394,13 +393,13 @@ func CreateFrameSizePlot(frameStats []FrameStat) (*plot.Plot, error) {
 //
 // Resulting plot will include the bitrate plot aggregated into 1 second buckets
 // and frame size plot all in one canvas.
-func MultiPlotBitrate(videoFile, plotFile string) error {
+func MultiPlotBitrate(videoFile, plotFile, ffprobePath string) error {
 	if _, err := os.Stat(videoFile); os.IsNotExist(err) {
 		return fmt.Errorf("MultiPlotBitrate() video file should exist: %w", err)
 	}
 	base := path.Base(videoFile)
 
-	fs, err := GetFrameStats(videoFile)
+	fs, err := GetFrameStats(videoFile, ffprobePath)
 	if err != nil {
 		return fmt.Errorf("MultiPlotBitrate() failed getting FrameStats: %w", err)
 	}
@@ -563,8 +562,8 @@ func getDuration(fs []FrameStat) float64 {
 	return math.Max(pts[len(pts)-1], acc)
 }
 
-// GetFramestats gets per-frame stats using ffprobe.
-func GetFrameStats(videoFile string) ([]FrameStat, error) {
+// GetFrameStats gets per-frame stats using ffprobe.
+func GetFrameStats(videoFile, ffprobePath string) ([]FrameStat, error) {
 	// Although we are querying packets statistics e.g. `AVPacket` from PoV libav, still
 	// for video stream it should map directly to a video frame.
 	ffprobeArgs := []string{
@@ -575,12 +574,8 @@ func GetFrameStats(videoFile string) ([]FrameStat, error) {
 		"-of", "json=compact=1",
 		videoFile,
 	}
-	c, err := tools.FfprobePath()
-	if err != nil {
-		return nil, err
-	}
 
-	cmd := exec.Command(c, ffprobeArgs...)
+	cmd := exec.Command(ffprobePath, ffprobeArgs...)
 	logging.Debugf("Running: %s\n", cmd)
 	out, err := cmd.Output()
 	if err != nil {

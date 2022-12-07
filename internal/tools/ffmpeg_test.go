@@ -10,7 +10,8 @@ import (
 	"testing"
 
 	"github.com/evolution-gaming/ease/internal/video"
-	"github.com/google/go-cmp/cmp"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_Path(t *testing.T) {
@@ -35,25 +36,16 @@ func Test_Path(t *testing.T) {
 		fakeBinDir := t.TempDir()
 		wantPath := path.Join(fakeBinDir, tc.exeName)
 		f, err := os.OpenFile(wantPath, os.O_CREATE, 0o755)
-		if err != nil {
-			t.Fatal(err)
-		}
+		require.NoError(t, err)
 		f.Close()
 		sysPath := os.Getenv("PATH")
 		t.Setenv("PATH", fakeBinDir+":"+sysPath)
 
 		gotPath, err := tc.pathFunc()
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
+		assert.NoError(t, err)
 
-		if diff := cmp.Diff(wantPath, gotPath); diff != "" {
-			t.Errorf("Path mismatch (-want +got):\n%s", diff)
-		}
-
-		if _, err := os.Stat(gotPath); err != nil {
-			t.Errorf("%s's path does not exist: %v", tc.exeName, err)
-		}
+		assert.Equal(t, wantPath, gotPath)
+		assert.FileExists(t, gotPath)
 	}
 
 	for name, tc := range tests {
@@ -83,13 +75,8 @@ func Test_Path_Negative(t *testing.T) {
 			t.Setenv("PATH", "")
 
 			s, err := tc.pathFunc()
-			if err == nil {
-				t.Error("Expected error since binary is not on PATH, but got <nil>")
-			}
-
-			if s != "" {
-				t.Errorf("Expected empty string as path, but got: %v", s)
-			}
+			assert.Error(t, err, "Expected error since binary is not on PATH")
+			assert.Equal(t, "", s, "Expected empty string as path")
 		})
 	}
 }
@@ -107,66 +94,29 @@ func Test_FfprobeExtractMetadata(t *testing.T) {
 		}
 
 		got, err := FfprobeExtractMetadata(videoFile)
-		if err != nil {
-			t.Errorf("Unexpected error: %v", err)
-		}
-
-		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("FfprobeExtractMetadata() mismatch (-want +got):\n%s", diff)
-		}
+		assert.NoError(t, err)
+		assert.Equal(t, want, got)
 	})
 }
 
 func Test_FfprobeExtractMetadata_Negative(t *testing.T) {
 	t.Run("Should fail for non-existent media file", func(t *testing.T) {
 		_, err := FfprobeExtractMetadata("/non/existent/path/to/file")
-		if err == nil {
-			t.Error("Expected error, but got <nil>")
-		}
+		assert.Error(t, err)
 	})
 	t.Run("Should fail extracting metadata from non-media file", func(t *testing.T) {
 		// Try to extract metadata from non video file, just some binary like for instance
 		// a test binary.
 		nonMediaFile := os.Args[0]
 		_, err := FfprobeExtractMetadata(nonMediaFile)
-		if err == nil {
-			t.Error("Expected error, but got <nil>")
-		}
+		assert.Error(t, err)
 	})
 }
 
 func Test_FindLibvmafModel(t *testing.T) {
 	t.Run("Model path should be valid", func(t *testing.T) {
-		checkModelFile := func(t *testing.T, fPath string) {
-			if _, err := os.Stat(fPath); err != nil {
-				t.Errorf("Model file path is not valid: %v", err)
-			}
-		}
-
 		gotPath, err := FindLibvmafModel()
-		if err != nil {
-			t.Errorf("Unexpected error locating libvmaf model file: %v", err)
-		}
-		checkModelFile(t, gotPath)
-	})
-
-	t.Run("Override via environment var", func(t *testing.T) {
-		// Create a fake model file
-		fakeModelFile := path.Join(t.TempDir(), libvmafModel)
-		t.Setenv(libvmafModelEnvOverride, fakeModelFile)
-		f, err := os.OpenFile(fakeModelFile, os.O_CREATE, 0o644)
-		if err != nil {
-			t.Fatal(err)
-		}
-		f.Close()
-
-		gotPath, err := FindLibvmafModel()
-		if err != nil {
-			t.Errorf("Unexpected error locating model file: %v", err)
-		}
-
-		if diff := cmp.Diff(fakeModelFile, gotPath); diff != "" {
-			t.Errorf("Model file path mismatch (-want +got):\n%s", diff)
-		}
+		assert.NoError(t, err)
+		assert.FileExists(t, gotPath)
 	})
 }

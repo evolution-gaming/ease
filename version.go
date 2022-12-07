@@ -12,13 +12,16 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"runtime/debug"
 	"time"
 )
 
 // Value injected during build with -ldflags="-X main.version={ver}".
-var version string
-var vInfo versionInfo
+var (
+	version string
+	vInfo   versionInfo
+)
 
 func init() {
 	// A case when version is passed in via -ldflags="-X main.version=xxx"
@@ -57,4 +60,8 @@ func (v versionInfo) String() string {
 		return v.version
 	}
 	return fmt.Sprintf("%s %s", v.version, v.revision)
+}
+
+func printVersion() {
+	fmt.Fprintln(os.Stderr, vInfo)
 }

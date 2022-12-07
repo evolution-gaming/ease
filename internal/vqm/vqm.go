@@ -21,6 +21,9 @@ import (
 	"github.com/google/shlex"
 )
 
+var DefaultFfmpegVMAFTemplate = "-hide_banner -i {{.CompressedFile}} -i {{.SourceFile}} " +
+	"-lavfi libvmaf=n_subsample=1:log_path={{.ResultFile}}:ms_ssim=1:psnr=1:log_fmt=json:model_path={{.ModelPath}}:n_threads={{.NThreads}} -f null -"
+
 // Measurer is an interface that must be implemented by VQM tool which is capable of
 // calculating Vide Quality Metrics.
 type Measurer interface {
@@ -45,8 +48,16 @@ type VideoQualityMetrics struct {
 	VMAF    float64
 }
 
+// FfmpegVMAFConfig exposes parameters for ffmpegVMAF creation.
+type FfmpegVMAFConfig struct {
+	FfmpegPath         string
+	LibvmafModelPath   string
+	FfmpegVMAFTemplate string
+	ResultFile         string
+}
+
 // NewFfmpegVMAF will initialize VQM Measurer based on ffmpeg and libvmaf.
-func NewFfmpegVMAF(exePath, modelPath, compressedFile, sourceFile, resultFile string) (Measurer, error) {
+func NewFfmpegVMAF(cfg *FfmpegVMAFConfig, compressedFile, sourceFile string) (Measurer, error) {
 	var vqt *ffmpegVMAF
 
 	// Too much CPU threads are also bad. This was an issue on 128 threaded AMD
@@ -67,34 +78,28 @@ func NewFfmpegVMAF(exePath, modelPath, compressedFile, sourceFile, resultFile st
 	}{
 		SourceFile:     sourceFile,
 		CompressedFile: compressedFile,
-		ResultFile:     resultFile,
-		ModelPath:      modelPath,
+		ResultFile:     cfg.ResultFile,
+		ModelPath:      cfg.LibvmafModelPath,
 		NThreads:       nThreads,
 	}
 
-	ffmpegArgTpl := `-hide_banner
-		-i {{.CompressedFile}} -i {{.SourceFile}}
-		-lavfi
-		libvmaf=n_subsample=1:log_path={{.ResultFile}}:ms_ssim=1:psnr=1:log_fmt=json:model_path={{.ModelPath}}:n_threads={{.NThreads}}
-		-f null -`
-
 	var cmd strings.Builder
-	tpl := template.Must(template.New("ffmpeg").Parse(ffmpegArgTpl))
+	tpl := template.Must(template.New("ffmpeg").Parse(cfg.FfmpegVMAFTemplate))
 	err := tpl.Execute(&cmd, tplContext)
 	if err != nil {
-		return vqt, fmt.Errorf("NewFfmpegVQM() execute template: %w", err)
+		return vqt, fmt.Errorf("NewFfmpegVMAF() execute template: %w", err)
 	}
 	ffmpegArgs, err := shlex.Split(cmd.String())
 	if err != nil {
-		return vqt, fmt.Errorf("NewFfmpegVQM() prepare command: %w", err)
+		return vqt, fmt.Errorf("NewFfmpegVMAF() prepare command: %w", err)
 	}
 
 	vqt = &ffmpegVMAF{
-		exePath:        exePath,
+		exePath:        cfg.FfmpegPath,
 		ffmpegArgs:     ffmpegArgs,
 		sourceFile:     sourceFile,
 		compressedFile: compressedFile,
-		resultFile:     resultFile,
+		resultFile:     cfg.ResultFile,
 		output:         []byte{},
 		measured:       false,
 	}
