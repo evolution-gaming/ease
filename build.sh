@@ -103,7 +103,7 @@ build_artifact_info() {
 
     # On GitHub CI also set step output
     if [ "${GITHUB_ACTIONS:-false}" == "true" ] ; then
-        echo "::set-output name=artifact_path::$1"
+        echo "artifact_path=$1" >> "${GITHUB_OUTPUT}"
     fi
 }
 
