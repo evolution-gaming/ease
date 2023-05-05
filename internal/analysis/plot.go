@@ -225,8 +225,8 @@ func CreateBitratePlot(frameStats []FrameStat) (*plot.Plot, error) {
 	p.Y.Label.Text = "Kbps"
 
 	videoDuration := getDuration(frameStats)
-	if videoDuration == 0 {
-		return p, errors.New("CreateBitratePlot() Video duration is 0")
+	if videoDuration <= 0 {
+		return p, errors.New("CreateBitratePlot() unexpected video duration")
 	}
 
 	var totSize uint64
@@ -337,8 +337,8 @@ func CreateFrameSizePlot(frameStats []FrameStat) (*plot.Plot, error) {
 	p.Y.Label.Text = "KB"
 
 	videoDuration := getDuration(frameStats)
-	if videoDuration == 0 {
-		return p, errors.New("CreateFrameSizePlot() Video duration is 0")
+	if videoDuration <= 0 {
+		return p, errors.New("CreateFrameSizePlot() unexpected video duration")
 	}
 
 	// Prepare XYers of all frame types for plotting.
@@ -559,7 +559,7 @@ func getDuration(fs []FrameStat) float64 {
 	}
 	// There is no guarantee that PTS-es are in increasing order.
 	sort.Float64s(pts)
-	return math.Max(pts[len(pts)-1], acc)
+	return math.Max(pts[len(pts)-1], acc) - pts[0]
 }
 
 // GetFrameStats gets per-frame stats using ffprobe.
@@ -567,6 +567,8 @@ func GetFrameStats(videoFile, ffprobePath string) ([]FrameStat, error) {
 	// Although we are querying packets statistics e.g. `AVPacket` from PoV libav, still
 	// for video stream it should map directly to a video frame.
 	ffprobeArgs := []string{
+		"-hide_banner",
+		"-loglevel", "quiet",
 		"-threads", fmt.Sprint(runtime.NumCPU()),
 		"-select_streams", "v",
 		"-show_entries",

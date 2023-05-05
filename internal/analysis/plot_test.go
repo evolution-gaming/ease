@@ -7,6 +7,7 @@
 package analysis
 
 import (
+	"encoding/json"
 	"os"
 	"path"
 	"testing"
@@ -155,4 +156,56 @@ func Test_GetFrameStats(t *testing.T) {
 			assert.NotEqual(t, frameStats[i].PtsTime, frameStats[i+1].PtsTime, "Consecutive PTS-es equal!")
 		}
 	})
+}
+
+func Test_getDuration(t *testing.T) {
+	type testCase struct {
+		given []byte
+		want  float64
+	}
+
+	tests := map[string]testCase{
+		"Increasing from ~0": {
+			given: []byte(`[
+					{ "pts_time": "0.046000", "duration_time": "0.041708", "size": "48929", "flags": "K__" },
+					{ "pts_time": "0.087708", "duration_time": "0.041708", "size": "7331", "flags": "___" },
+					{ "pts_time": "0.129417", "duration_time": "0.041708", "size": "6968", "flags": "___" }
+			]`),
+			want: 0.083417,
+		},
+		"Increasing from >0": {
+			given: []byte(`[
+					{ "pts_time": "1683156348.790500", "duration_time": "0.041708", "size": "82949", "flags": "K__" },
+					{ "pts_time": "1683156348.832208", "duration_time": "0.041708", "size": "1879", "flags": "___" },
+					{ "pts_time": "1683156348.873917", "duration_time": "0.041708", "size": "2245", "flags": "___" }
+			]`),
+			want: 0.08317,
+		},
+		"Non-monotonic": {
+			given: []byte(`[
+					{ "pts_time": "1683156348.873917", "duration_time": "0.041708", "size": "2245", "flags": "___" },
+					{ "pts_time": "1683156348.790500", "duration_time": "0.041708", "size": "82949", "flags": "K__" },
+					{ "pts_time": "1683156348.832208", "duration_time": "0.041708", "size": "1879", "flags": "___" }
+			]`),
+			want: 0.08317,
+		},
+		"Bad PTS": {
+			given: []byte(`[
+					{ "pts_time": "0", "duration_time": "0.041708", "size": "2245", "flags": "___" },
+					{ "pts_time": "0", "duration_time": "0.041708", "size": "82949", "flags": "K__" },
+					{ "pts_time": "0", "duration_time": "0.041708", "size": "1879", "flags": "___" }
+			]`),
+			want: 0.125124,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			var frames []FrameStat
+			assert.NoError(t, json.Unmarshal(tc.given, &frames))
+
+			got := getDuration(frames)
+			assert.InDelta(t, tc.want, got, 0.001)
+		})
+	}
 }
