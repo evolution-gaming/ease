@@ -58,7 +58,7 @@ jobs:
       - if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
         name: Install static ffmpeg
         run: |
-          curl --connect-timeout 10 -Lv -o ffmpeg.tar.xz https://www.johnvansickle.com/ffmpeg/old-releases/ffmpeg-5.1.1-arm64-static.tar.xz
+          curl --connect-timeout 10 -Lv -o ffmpeg.tar.xz https://www.johnvansickle.com/ffmpeg/old-releases/ffmpeg-5.1.1-amd64-static.tar.xz
           echo "4cbbe32169c4ec79a0969d5c92cbcaff  ffmpeg.tar.xz" | md5sum --check -
           mkdir -p "$FFMPEG_DEST_DIR"
           tar -C "$FFMPEG_DEST_DIR" -xf ffmpeg.tar.xz --strip-components=1
