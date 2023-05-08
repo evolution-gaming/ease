@@ -171,7 +171,7 @@ func Test_getDuration(t *testing.T) {
 					{ "pts_time": "0.087708", "duration_time": "0.041708", "size": "7331", "flags": "___" },
 					{ "pts_time": "0.129417", "duration_time": "0.041708", "size": "6968", "flags": "___" }
 			]`),
-			want: 0.083417,
+			want: 0.125125,
 		},
 		"Increasing from >0": {
 			given: []byte(`[
@@ -179,7 +179,7 @@ func Test_getDuration(t *testing.T) {
 					{ "pts_time": "1683156348.832208", "duration_time": "0.041708", "size": "1879", "flags": "___" },
 					{ "pts_time": "1683156348.873917", "duration_time": "0.041708", "size": "2245", "flags": "___" }
 			]`),
-			want: 0.08317,
+			want: 0.125125,
 		},
 		"Non-monotonic": {
 			given: []byte(`[
@@ -187,15 +187,23 @@ func Test_getDuration(t *testing.T) {
 					{ "pts_time": "1683156348.790500", "duration_time": "0.041708", "size": "82949", "flags": "K__" },
 					{ "pts_time": "1683156348.832208", "duration_time": "0.041708", "size": "1879", "flags": "___" }
 			]`),
-			want: 0.08317,
+			want: 0.125125,
 		},
-		"Bad PTS": {
+		"Zero PTS-es": {
 			given: []byte(`[
 					{ "pts_time": "0", "duration_time": "0.041708", "size": "2245", "flags": "___" },
 					{ "pts_time": "0", "duration_time": "0.041708", "size": "82949", "flags": "K__" },
 					{ "pts_time": "0", "duration_time": "0.041708", "size": "1879", "flags": "___" }
 			]`),
 			want: 0.125124,
+		},
+		"Incorrect PTS-es": {
+			given: []byte(`[
+					{ "pts_time": "1.001", "duration_time": "0.04", "size": "2245", "flags": "___" },
+					{ "pts_time": "1.002", "duration_time": "0.04", "size": "82949", "flags": "K__" },
+					{ "pts_time": "1.003", "duration_time": "0.04", "size": "1879", "flags": "___" }
+			]`),
+			want: 0.12,
 		},
 	}
 

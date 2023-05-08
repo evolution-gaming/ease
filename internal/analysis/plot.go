@@ -559,7 +559,7 @@ func getDuration(fs []FrameStat) float64 {
 	}
 	// There is no guarantee that PTS-es are in increasing order.
 	sort.Float64s(pts)
-	return math.Max(pts[len(pts)-1], acc) - pts[0]
+	return math.Max((pts[len(pts)-1] - pts[0] + fs[0].DurationTime), acc)
 }
 
 // GetFrameStats gets per-frame stats using ffprobe.
