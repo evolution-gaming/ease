@@ -264,6 +264,13 @@ func (a *App) analyse(rep *report) error {
 			msssims = append(msssims, v.MS_SSIM)
 		}
 
+		// Since frameMetrics coming from JSON can be absent, we check for this case, e.g.
+		// if all metric values are 0 then most probable case is that metric was missing
+		// from source JSON. This is due to how unmarshaling works in Go.
+		skipVMAF := all(vmafs, 0)
+		skipPSNR := all(psnrs, 0)
+		skipMSSSIM := all(msssims, 0)
+
 		if err := analysis.MultiPlotBitrate(compressedFile, bitratePlot, a.cfg.FfprobePath.Value()); err != nil {
 			return &AppError{
 				msg:      fmt.Sprintf("failed creating bitrate plot: %s", err),
@@ -272,29 +279,41 @@ func (a *App) analyse(rep *report) error {
 		}
 		logging.Infof("Bitrate plot done: %s", bitratePlot)
 
-		if err := analysis.MultiPlotVqm(vmafs, "VMAF", base, vmafPlot); err != nil {
-			return &AppError{
-				msg:      fmt.Sprintf("failed creating VMAF multiplot: %s", err),
-				exitCode: 1,
+		if skipVMAF {
+			logging.Info("Skip VMAF multi-plot, metric missing")
+		} else {
+			if err := analysis.MultiPlotVqm(vmafs, "VMAF", base, vmafPlot); err != nil {
+				return &AppError{
+					msg:      fmt.Sprintf("failed creating VMAF multiplot: %s", err),
+					exitCode: 1,
+				}
 			}
+			logging.Infof("VMAF multi-plot done: %s", vmafPlot)
 		}
-		logging.Infof("VMAF multi-plot done: %s", vmafPlot)
 
-		if err := analysis.MultiPlotVqm(psnrs, "PSNR", base, psnrPlot); err != nil {
-			return &AppError{
-				msg:      fmt.Sprintf("failed creating PSNR multiplot: %s", err),
-				exitCode: 1,
+		if skipPSNR {
+			logging.Info("Skip PSNR multi-plot, metric missing")
+		} else {
+			if err := analysis.MultiPlotVqm(psnrs, "PSNR", base, psnrPlot); err != nil {
+				return &AppError{
+					msg:      fmt.Sprintf("failed creating PSNR multiplot: %s", err),
+					exitCode: 1,
+				}
 			}
+			logging.Infof("PSNR multi-plot done: %s", psnrPlot)
 		}
-		logging.Infof("PSNR multi-plot done: %s", psnrPlot)
 
-		if err := analysis.MultiPlotVqm(msssims, "MS-SSIM", base, msssimPlot); err != nil {
-			return &AppError{
-				msg:      fmt.Sprintf("failed creating MS-SSIM multiplot: %s", err),
-				exitCode: 1,
+		if skipMSSSIM {
+			logging.Info("Skip MS-SSIM multi-plot, metric missing")
+		} else {
+			if err := analysis.MultiPlotVqm(msssims, "MS-SSIM", base, msssimPlot); err != nil {
+				return &AppError{
+					msg:      fmt.Sprintf("failed creating MS-SSIM multiplot: %s", err),
+					exitCode: 1,
+				}
 			}
+			logging.Infof("MS-SSIM multi-plot done: %s", msssimPlot)
 		}
-		logging.Infof("MS-SSIM multi-plot done: %s", msssimPlot)
 	}
 
 	return nil

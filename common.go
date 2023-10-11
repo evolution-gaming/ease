@@ -194,3 +194,17 @@ func fileExists(p string) bool {
 
 	return true
 }
+
+func all[T comparable](s []T, val T) bool {
+	if len(s) == 0 {
+		return false
+	}
+
+	for _, e := range s {
+		if e != val {
+			return false
+		}
+	}
+
+	return true
+}

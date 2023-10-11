@@ -41,9 +41,6 @@ func Test_RunApp_Run(t *testing.T) {
 
 	psnrPlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*psnr.png", outDir))
 	assert.Len(t, psnrPlots, 1, "Expecting one file for PSNR plot")
-
-	msssimPlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*ms-ssim.png", outDir))
-	assert.Len(t, msssimPlots, 1, "Expecting one file for MS-SSIM plot")
 }
 
 /*************************************
