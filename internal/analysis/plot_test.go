@@ -217,3 +217,53 @@ func Test_getDuration(t *testing.T) {
 		})
 	}
 }
+
+func Test_FrameStat_UnmarshalJSON(t *testing.T) {
+	type testCase struct {
+		given []byte
+		want  FrameStat
+	}
+
+	tests := map[string]testCase{
+		"2 flags keyframe": {
+			given: []byte(`{"pts_time": "0", "duration_time": "0.04", "size": "82949", "flags": "K_" }`),
+			want: FrameStat{
+				KeyFrame:     true,
+				DurationTime: 0.04,
+				PtsTime:      0,
+				Size:         82949,
+			},
+		},
+		"3 flags keyframe": {
+			given: []byte(`{"pts_time": "0", "duration_time": "0.04", "size": "82949", "flags": "K__" }`),
+			want: FrameStat{
+				KeyFrame:     true,
+				DurationTime: 0.04,
+				PtsTime:      0,
+				Size:         82949,
+			},
+		},
+		"3 flags": {
+			given: []byte(`{"pts_time": "1", "duration_time": "0.04", "size": "82949", "flags": "___" }`),
+			want: FrameStat{
+				KeyFrame:     false,
+				DurationTime: 0.04,
+				PtsTime:      1,
+				Size:         82949,
+			},
+		},
+	}
+
+	run := func(t *testing.T, tc testCase) {
+		var fs FrameStat
+		err := fs.UnmarshalJSON(tc.given)
+		assert.NoError(t, err)
+		assert.Equal(t, tc.want, fs)
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			run(t, tc)
+		})
+	}
+}
