@@ -616,7 +616,7 @@ func (f *FrameStat) UnmarshalJSON(data []byte) error {
 	}
 
 	switch ps.Flags {
-	case "K_":
+	case "K_", "K__":
 		f.KeyFrame = true
 	default:
 		f.KeyFrame = false
