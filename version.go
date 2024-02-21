@@ -59,7 +59,7 @@ func (v versionInfo) String() string {
 	if v.revision == "" {
 		return v.version
 	}
-	return fmt.Sprintf("%s %s", v.version, v.revision)
+	return fmt.Sprintf("%s %s (%s)", v.version, v.revision, v.time.Format("2006-01-02"))
 }
 
 func printVersion() {
