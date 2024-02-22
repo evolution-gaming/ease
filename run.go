@@ -8,6 +8,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -130,7 +131,7 @@ func (a *App) encode(plan encoding.Plan) (*report, error) {
 		logging.Infof("Run had following ERRORS:\n%s", ur)
 	}
 	if err != nil {
-		return rep, &AppError{exitCode: 1, msg: err.Error()}
+		return rep, err
 	}
 	rep.EncodingResult = result
 
@@ -173,23 +174,8 @@ func (a *App) encode(plan encoding.Plan) (*report, error) {
 	}
 
 	if vqmFailed {
-		return rep, &AppError{
-			msg:      "VQM calculations had errors, see log for reasons",
-			exitCode: 1,
-		}
+		return rep, errors.New("VQM calculations had errors, see log for reasons")
 	}
-
-	// Write report of encoding results.
-	reportPath := path.Join(a.flOutDir, a.cfg.ReportFileName.Value())
-	reportOut, err := os.Create(reportPath)
-	if err != nil {
-		return rep, &AppError{
-			msg:      fmt.Sprintf("Unable to create report file: %s", err),
-			exitCode: 1,
-		}
-	}
-	defer reportOut.Close()
-	rep.WriteJSON(reportOut)
 
 	return rep, nil
 }
@@ -200,10 +186,7 @@ func (a *App) analyse(rep *report) error {
 	srcData := extractSourceData(rep)
 	d, err := json.MarshalIndent(srcData, "", "  ")
 	if err != nil {
-		return &AppError{
-			exitCode: 1,
-			msg:      err.Error(),
-		}
+		return err
 	}
 	logging.Debugf("Analysis for:\n%s", d)
 
@@ -216,10 +199,7 @@ func (a *App) analyse(rep *report) error {
 		logging.Infof("Analysing %s", v.CompressedFile)
 		resDir := path.Join(a.flOutDir, base)
 		if err := os.MkdirAll(resDir, os.FileMode(0o755)); err != nil {
-			return &AppError{
-				msg:      fmt.Sprintf("failed creating directory: %s", err),
-				exitCode: 1,
-			}
+			return fmt.Errorf("creating directory: %w", err)
 		}
 
 		compressedFile := v.CompressedFile
@@ -239,10 +219,7 @@ func (a *App) analyse(rep *report) error {
 
 		jsonFd, err := os.Open(vqmFile)
 		if err != nil {
-			return &AppError{
-				msg:      fmt.Sprintf("failed opening VQM file: %s", err),
-				exitCode: 1,
-			}
+			return fmt.Errorf("opening VQM file: %w", err)
 		}
 
 		var frameMetrics vqm.FrameMetrics
@@ -251,10 +228,7 @@ func (a *App) analyse(rep *report) error {
 		// in loop in this case.
 		jsonFd.Close()
 		if err != nil {
-			return &AppError{
-				msg:      fmt.Sprintf("failed converting to FrameMetrics: %s", err),
-				exitCode: 1,
-			}
+			return fmt.Errorf("failed converting to FrameMetrics: %w", err)
 		}
 
 		var vmafs, psnrs, msssims []float64
@@ -272,10 +246,7 @@ func (a *App) analyse(rep *report) error {
 		skipMSSSIM := all(msssims, 0)
 
 		if err := analysis.MultiPlotBitrate(compressedFile, bitratePlot, a.cfg.FfprobePath.Value()); err != nil {
-			return &AppError{
-				msg:      fmt.Sprintf("failed creating bitrate plot: %s", err),
-				exitCode: 1,
-			}
+			return fmt.Errorf("creating bitrate plot: %w", err)
 		}
 		logging.Infof("Bitrate plot done: %s", bitratePlot)
 
@@ -283,10 +254,7 @@ func (a *App) analyse(rep *report) error {
 			logging.Info("Skip VMAF multi-plot, metric missing")
 		} else {
 			if err := analysis.MultiPlotVqm(vmafs, "VMAF", base, vmafPlot); err != nil {
-				return &AppError{
-					msg:      fmt.Sprintf("failed creating VMAF multiplot: %s", err),
-					exitCode: 1,
-				}
+				return fmt.Errorf("creating VMAF multiplot: %w", err)
 			}
 			logging.Infof("VMAF multi-plot done: %s", vmafPlot)
 		}
@@ -295,10 +263,7 @@ func (a *App) analyse(rep *report) error {
 			logging.Info("Skip PSNR multi-plot, metric missing")
 		} else {
 			if err := analysis.MultiPlotVqm(psnrs, "PSNR", base, psnrPlot); err != nil {
-				return &AppError{
-					msg:      fmt.Sprintf("failed creating PSNR multiplot: %s", err),
-					exitCode: 1,
-				}
+				return fmt.Errorf("creating PSNR multiplot: %w", err)
 			}
 			logging.Infof("PSNR multi-plot done: %s", psnrPlot)
 		}
@@ -307,15 +272,45 @@ func (a *App) analyse(rep *report) error {
 			logging.Info("Skip MS-SSIM multi-plot, metric missing")
 		} else {
 			if err := analysis.MultiPlotVqm(msssims, "MS-SSIM", base, msssimPlot); err != nil {
-				return &AppError{
-					msg:      fmt.Sprintf("failed creating MS-SSIM multiplot: %s", err),
-					exitCode: 1,
-				}
+				return fmt.Errorf("creating MS-SSIM multiplot: %w", err)
 			}
 			logging.Infof("MS-SSIM multi-plot done: %s", msssimPlot)
 		}
 	}
 
+	return nil
+}
+
+func (a *App) saveJSONReport(rep *report) error {
+	// Write report of encoding results.
+	reportPath := path.Join(a.flOutDir, a.cfg.ReportFileName.Value())
+	reportOut, err := os.Create(reportPath)
+	if err != nil {
+		return fmt.Errorf("creating report file: %w", err)
+	}
+	defer reportOut.Close()
+	return rep.WriteJSON(reportOut)
+}
+
+func (a *App) saveCSVReport(rep *report) error {
+	// Convert report to record-like representation to be written as CSV.
+	csvReport, err := newCsvReport(rep)
+	if err != nil {
+		return fmt.Errorf("converting to record-like representation: %w", err)
+	}
+	// TODO: For time being just replace ".json" extension with ".csv". If need be this
+	// can be later exposed as separate configuration option.
+	reportPath := path.Join(a.flOutDir, a.cfg.ReportFileName.Value())
+	reportPath = strings.TrimSuffix(reportPath, ".json") + ".csv"
+	reportOut, err := os.Create(reportPath)
+	if err != nil {
+		return fmt.Errorf("creating CSV report file: %w", err)
+	}
+	defer reportOut.Close()
+
+	if err := csvReport.WriteCSV(reportOut); err != nil {
+		return fmt.Errorf("writing CSV report: %w", err)
+	}
 	return nil
 }
 
@@ -352,6 +347,18 @@ func (a *App) Run(args []string) error {
 		return &AppError{exitCode: 1, msg: err.Error()}
 	}
 
+	// Save reports to filesystem.
+	if err = a.saveJSONReport(rep); err != nil {
+		return &AppError{exitCode: 1, msg: err.Error()}
+	}
+	if err = a.saveCSVReport(rep); err != nil {
+		return &AppError{exitCode: 1, msg: err.Error()}
+	}
+
 	// Run analysis stage.
-	return a.analyse(rep)
+	if err = a.analyse(rep); err != nil {
+		return &AppError{exitCode: 1, msg: err.Error()}
+	}
+
+	return nil
 }
