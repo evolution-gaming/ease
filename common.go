@@ -14,10 +14,12 @@ import (
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/evolution-gaming/ease/internal/encoding"
 	"github.com/evolution-gaming/ease/internal/logging"
 	"github.com/evolution-gaming/ease/internal/vqm"
+	"github.com/jszwec/csvutil"
 )
 
 // Commander interface should be implemented by commands and sub-commands.
@@ -64,16 +66,101 @@ type report struct {
 }
 
 // WriteJSON writes application execution result as JSON.
-func (r *report) WriteJSON(w io.Writer) {
+func (r *report) WriteJSON(w io.Writer) error {
 	// Write Plan execution result to JSON (for now)
 	res, err := json.MarshalIndent(r, "", "  ")
 	if err != nil {
-		logging.Infof("Unable to marshal encoding result to JSON: %s", err)
+		return fmt.Errorf("marshaling encoding result to JSON: %w", err)
 	}
 	_, err = w.Write(res)
 	if err != nil {
-		logging.Infof("Error writing encoding result %s", err)
+		return fmt.Errorf("writing encoding result %w", err)
 	}
+	return nil
+}
+
+// csvRecord contains result fields from one encode.
+type csvRecord struct {
+	Name             string
+	SourceFile       string
+	CompressedFile   string
+	Cmd              string
+	HStime           string
+	HUtime           string
+	HElapsed         string
+	Stime            time.Duration
+	Utime            time.Duration
+	Elapsed          time.Duration
+	MaxRss           int64
+	VideoDuration    float64
+	AvgEncodingSpeed float64
+	PSNR             float64
+	MS_SSIM          float64
+	VMAF             float64
+}
+
+// Wrap rows of csvRecords mainly to attach relevant methods.
+type csvReport struct {
+	rows []csvRecord
+}
+
+func newCsvReport(r *report) (*csvReport, error) {
+	size := len(r.EncodingResult.RunResults)
+	if size != len(r.VQMResults) {
+		return nil, errors.New("Encoding result and VQM result size do not match")
+	}
+
+	var report csvReport
+	report.rows = make([]csvRecord, 0, size)
+
+	// Need to create an intermediate mapping from CompressedFile to VQM metrics to make
+	// merging fields from two sources easier (we cannot rely on order). CompressedFile
+	// being a unique identifier (Name does not work when there are multiple input files).
+	tVqms := make(map[string]vqm.VideoQualityMetrics, size)
+	for _, v := range r.VQMResults {
+		tVqms[v.CompressedFile] = v.Metrics
+	}
+
+	// Final loop to merge into a single report.
+	for _, v := range r.EncodingResult.RunResults {
+		vqm, ok := tVqms[v.CompressedFile]
+		if !ok {
+			return nil, fmt.Errorf("no VQMs for map key: %s", v.CompressedFile)
+		}
+		report.rows = append(report.rows, csvRecord{
+			Name:             v.Name,
+			SourceFile:       v.SourceFile,
+			CompressedFile:   v.CompressedFile,
+			Cmd:              v.Cmd,
+			HStime:           v.Stats.HStime,
+			HUtime:           v.Stats.HUtime,
+			HElapsed:         v.Stats.HElapsed,
+			Stime:            v.Stats.Stime,
+			Utime:            v.Stats.Utime,
+			Elapsed:          v.Stats.Elapsed,
+			MaxRss:           v.Stats.MaxRss,
+			VideoDuration:    v.VideoDuration,
+			AvgEncodingSpeed: v.AvgEncodingSpeed,
+			PSNR:             vqm.PSNR,
+			MS_SSIM:          vqm.MS_SSIM,
+			VMAF:             vqm.VMAF,
+		})
+	}
+
+	return &report, nil
+}
+
+// WriteCSV saves flat application report representation to io.Writer.
+func (r *csvReport) WriteCSV(w io.Writer) error {
+	data, err := csvutil.Marshal(r.rows)
+	if err != nil {
+		return err
+	}
+	_, err2 := w.Write(data)
+	if err2 != nil {
+		return err2
+	}
+	return nil
 }
 
 // parseReportFile is a helper to read and parse report JSON file into report type.

@@ -58,13 +58,29 @@ func Test_report_WriteJSON(t *testing.T) {
 	parsedReport := parseReportFile(reportFile)
 
 	var got bytes.Buffer
-	parsedReport.WriteJSON(&got)
+	err := parsedReport.WriteJSON(&got)
+	assert.NoError(t, err)
 
 	want, err := os.ReadFile(reportFile)
 	assert.NoError(t, err)
 	wantStr := strings.TrimRight(string(want), "\n")
 
 	assert.Equal(t, wantStr, got.String())
+}
+
+func Test_csvReport_writeCSV(t *testing.T) {
+	// Create report from fixture data.
+	reportFile := "testdata/encoding_artifacts/report.json"
+	parsedReport := parseReportFile(reportFile)
+
+	csvReport, err := newCsvReport(parsedReport)
+	assert.NoError(t, err)
+
+	var b bytes.Buffer
+	err = csvReport.WriteCSV(&b)
+	assert.NoError(t, err)
+
+	assert.Len(t, b.Bytes(), 1332)
 }
 
 func Test_all_Positive(t *testing.T) {
