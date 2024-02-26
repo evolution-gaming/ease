@@ -23,14 +23,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source tree
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-go@v3
+      - uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
+          cache: false
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v3
+        uses: golangci/golangci-lint-action@v4
         with:
           # Optional: version of golangci-lint to use in form of v1.2 or v1.2.3 or `latest` to use the latest version
           version: latest
@@ -51,13 +52,13 @@ jobs:
       FFMPEG_DEST_DIR: /opt/ffmpeg-static
     steps:
       - name: Checkout source tree
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
       # Cache for expensive static ffmpeg binary installation
       - name: Cache for static ffmpeg
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         id: cache-ffmpeg
         with:
           path: ${{ env.FFMPEG_DEST_DIR }}
@@ -73,9 +74,10 @@ jobs:
           tar -C "$FFMPEG_DEST_DIR" -xf ffmpeg.tar.xz --strip-components=1
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
           go-version-file: 'go.mod'
+          cache: false
 
       - name: Save Go cache paths
         id: go-cache-paths
@@ -84,13 +86,13 @@ jobs:
           echo "go_cache=$(go env GOCACHE)" >> $GITHUB_OUTPUT
 
       - name: Create Go module cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.go-cache-paths.outputs.go_mod_cache }}
           key: ${{ runner.os }}-go_mod_cache-${{ hashFiles('go.sum') }}
 
       - name: Create Go cache
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: ${{ steps.go-cache-paths.outputs.go_cache }}
           key: ${{ runner.os }}-go_cache-${{ hashFiles('go.sum') }}
@@ -113,7 +115,7 @@ jobs:
           bash -x ./build.sh build
 
       - name: Save build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
-          name: ease-${{ github.run_number }}
+          name: ease-${{ github.run_number }}_${{ matrix.ffmpeg_version }}
           path: ${{ steps.build.outputs.artifact_path }}
