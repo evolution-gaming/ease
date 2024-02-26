@@ -22,7 +22,8 @@ import (
 )
 
 var DefaultFfmpegVMAFTemplate = "-hide_banner -i {{.CompressedFile}} -i {{.SourceFile}} " +
-	"-lavfi libvmaf=n_subsample=1:log_path={{.ResultFile}}:psnr=1:log_fmt=json:model_path={{.ModelPath}}:n_threads={{.NThreads}} -f null -"
+	"-lavfi libvmaf=n_subsample=1:log_path={{.ResultFile}}:feature=name=psnr:" +
+	"log_fmt=json:model=path={{.ModelPath}}:n_threads={{.NThreads}} -f null -"
 
 // Measurer is an interface that must be implemented by VQM tool which is capable of
 // calculating Vide Quality Metrics.

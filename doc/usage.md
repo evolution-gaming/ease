@@ -202,3 +202,38 @@ Examples `vqmplot` usage:
 ```
 ease vqmplot -m PSNR -i libvmaf.json -o psnr.png
 ```
+
+## Configuration override
+
+For certain scenarios, you might find it necessary to adjust the internal settings, such
+as specifying custom paths for `ffmpeg` and `ffprobe`, or tweaking options for the
+`libvmaf` filter. These adjustments can be seamlessly accomplished using a JSON
+configuration file. The `ease` tool supports the `-conf` command-line flag, allowing you
+to provide the configuration file's location. To familiarize yourself with the
+configurable options, you can generate a template of the default configuration by
+executing `ease dump-conf`:
+
+```
+$ ease dump-conf
+{
+  "ffmpeg_path": "/usr/bin/ffmpeg",
+  "ffprobe_path": "/usr/bin/ffprobe",
+  "libvmaf_model_path": "/usr/share/model/vmaf_v0.6.1.json",
+  "ffmpeg_vmaf_template": "-hide_banner -i {{.CompressedFile}} -i {{.SourceFile}} -lavfi libvmaf=n_subsample=1:log_path={{.ResultFile}}:feature=name=psnr:log_fmt=json:model=path={{.ModelPath}}:n_threads={{.NThreads}} -f null -",
+  "report_file_name": "report.json"
+}
+```
+
+Alternatively you can also dump default configuration to file for modification:
+
+```
+$ ease dump-conf > my_config.json
+```
+
+To customize your setup, create a configuration file adjusting any or all of these
+options. Then, when using the `ease` tool, simply reference your configuration file's path
+with the `-conf` flag.
+
+```
+$ ease run -plan encoding_plan.json -out-dir out -conf <path/to/config.json>
+```
