@@ -37,6 +37,15 @@ jobs:
 
   build:
     name: Build and test
+    strategy:
+      matrix:
+        include:
+          - ffmpeg_version: "v5.1.1"
+            ffmpeg_url: https://www.johnvansickle.com/ffmpeg/old-releases/ffmpeg-5.1.1-amd64-static.tar.xz
+            ffmpeg_md5: "4cbbe32169c4ec79a0969d5c92cbcaff"
+          - ffmpeg_version: "v6.1"
+            ffmpeg_url: https://www.johnvansickle.com/ffmpeg/releases/ffmpeg-6.1-amd64-static.tar.xz
+            ffmpeg_md5: "8a34e2ab52b72777a8dcd3ff5defbcd8"
     runs-on: ubuntu-latest
     env:
       FFMPEG_DEST_DIR: /opt/ffmpeg-static
@@ -52,14 +61,14 @@ jobs:
         id: cache-ffmpeg
         with:
           path: ${{ env.FFMPEG_DEST_DIR }}
-          key: ${{ runner.os }}-static-ffmpeg-v5.1.1
+          key: ${{ runner.os }}-static-ffmpeg-${{ matrix.ffmpeg_version }}
 
       # Only run this expensive step if we have a cache miss
       - if: steps.cache-ffmpeg.outputs.cache-hit != 'true'
-        name: Install static ffmpeg
+        name: Install static ffmpeg ${{ matrix.ffmpeg_version }}
         run: |
-          curl --connect-timeout 10 -Lv -o ffmpeg.tar.xz https://www.johnvansickle.com/ffmpeg/old-releases/ffmpeg-5.1.1-amd64-static.tar.xz
-          echo "4cbbe32169c4ec79a0969d5c92cbcaff  ffmpeg.tar.xz" | md5sum --check -
+          curl --connect-timeout 10 -Lv -o ffmpeg.tar.xz ${{ matrix.ffmpeg_url }}
+          echo "${{ matrix.ffmpeg_md5 }}  ffmpeg.tar.xz" | md5sum --check -
           mkdir -p "$FFMPEG_DEST_DIR"
           tar -C "$FFMPEG_DEST_DIR" -xf ffmpeg.tar.xz --strip-components=1
 
@@ -92,6 +101,7 @@ jobs:
       - name: Test
         run: |
           export PATH="$FFMPEG_DEST_DIR":$PATH
+          ffmpeg -version
           bash -x ./build.sh clean
           bash -x ./build.sh test
 
