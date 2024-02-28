@@ -120,15 +120,18 @@ type Scheme struct {
 	CommandTpl string
 }
 
+// schemeJson maps directly to JSON representation.
+type schemeJson struct {
+	Name       string
+	CommandTpl []string
+}
+
 // UnmarshalJSON implement Unmarshaler interface for Scheme type.
 func (s *Scheme) UnmarshalJSON(data []byte) error {
 	// Since JSON Scheme.CommandTpl is a string array we create a "temporary"
 	// struct that will be used to decode JSON, we will use this struct to
 	// construct Scheme fields.
-	scheme := struct {
-		Name       string
-		CommandTpl []string
-	}{}
+	scheme := schemeJson{}
 	if err := json.Unmarshal(data, &scheme); err != nil {
 		return err
 	}
@@ -137,6 +140,16 @@ func (s *Scheme) UnmarshalJSON(data []byte) error {
 	s.CommandTpl = strings.Join(scheme.CommandTpl, "")
 
 	return nil
+}
+
+// MarshalJSON implement Marshaler interface for Scheme type.
+func (s *Scheme) MarshalJSON() ([]byte, error) {
+	// Need to convert to implementation that supports multiline string.
+	scheme := schemeJson{
+		Name:       s.Name,
+		CommandTpl: []string{s.CommandTpl},
+	}
+	return json.Marshal(scheme)
 }
 
 // Expand will generate complete encoding commands based on provided "context".

@@ -27,6 +27,7 @@ The commands are:
     vqmplot     create plot for given metric from libvmaf JSON report
     bitrate     create bitrate plot of given video file
     dump-conf   output actual application configuration
+    new-plan    helper to create anew plan configuration file
     version     print ease version and exit
 
 Use "ease <command> -h|-help" for more information about command.`
@@ -45,6 +46,8 @@ Use "ease <command> -h|-help" for more information about command.`
 		return CreateBitrateCommand().Run(args[1:])
 	case "dump-conf", "dump":
 		return CreateDumpConfCommand().Run(args[1:])
+	case "new-plan", "newp":
+		return CreateNewPlanCommand().Run(args[1:])
 	case "version":
 		printVersion()
 		return nil

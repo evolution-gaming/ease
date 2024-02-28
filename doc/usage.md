@@ -13,6 +13,7 @@ implemented:
 - `ease bitrate`
 - `ease vqmplot`
 - `ease dump-conf`
+- `ease new-plan`
 - `ease version`
 
 ## Intended usage workflow
