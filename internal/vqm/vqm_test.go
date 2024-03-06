@@ -6,13 +6,21 @@ package vqm
 
 import (
 	"encoding/json"
+	"flag"
 	"os"
+	"path"
 	"testing"
 
 	"github.com/evolution-gaming/ease/internal/tools"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+// Define flag for `go test` to save libvmaf result file. This comes handy when need to
+// add a new version of libvmaf (see testdata/vqm directory).
+//
+// Example: go test -run ^TestFfmpegVMAF ./internal/vqm -save-result
+var saveResultFile = flag.Bool("save-result", false, "Save result file")
 
 func TestFfmpegVMAFImplementsMeasurer(t *testing.T) {
 	// Test that tool implement Measurer interface.
@@ -29,7 +37,11 @@ func TestFfmpegVMAF(t *testing.T) {
 
 	srcFile := "../../testdata/video/testsrc01.mp4"
 	compressedFile := "../../testdata/video/testsrc01.mp4"
-	resultFile := wrkDir + "/result.json"
+	resultFile := path.Join(wrkDir, "result.json")
+	if *saveResultFile {
+		cwd, _ := os.Getwd()
+		resultFile = path.Join(cwd, "result.json")
+	}
 
 	t.Run("NewFfmpegVMAF creates new VQM tool", func(t *testing.T) {
 		var err error
@@ -130,6 +142,9 @@ func Test_ffmpegVMAFResult_UnmarshalVersions(t *testing.T) {
 		},
 		"libvmaf v2.3.1": {
 			resultFile: "../../testdata/vqm/libvmaf_v2.3.1.json",
+		},
+		"libvmaf v3.0.0": {
+			resultFile: "../../testdata/vqm/libvmaf_v3.0.0.json",
 		},
 	}
 
