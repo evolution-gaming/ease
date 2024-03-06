@@ -19,7 +19,9 @@ import (
 // Define flag for `go test` to save libvmaf result file. This comes handy when need to
 // add a new version of libvmaf (see testdata/vqm directory).
 //
-// Example: go test -run ^TestFfmpegVMAF ./internal/vqm -save-result
+// Example:
+//
+//	go test -run ^TestFfmpegVMAF ./internal/vqm -save-result
 var saveResultFile = flag.Bool("save-result", false, "Save result file")
 
 func TestFfmpegVMAFImplementsMeasurer(t *testing.T) {
