@@ -54,15 +54,6 @@ func FfprobePath() (string, error) {
 func FfprobeExtractMetadata(videoFile string) (video.Metadata, error) {
 	var vmeta video.Metadata
 
-	type metadata struct {
-		CodecName string  `json:"codec_name,omitempty"`
-		FrameRate string  `json:"r_frame_rate,omitempty"`
-		Duration  float64 `json:"duration,omitempty,string"`
-		Width     int     `json:"width,omitempty"`
-		Height    int     `json:"height,omitempty"`
-		BitRate   int     `json:"bit_rate,omitempty,string"`
-	}
-
 	if _, err := os.Stat(videoFile); os.IsNotExist(err) {
 		return vmeta, fmt.Errorf("FfprobeExtractMetadata() os.Stat: %w", err)
 	}
@@ -86,16 +77,26 @@ func FfprobeExtractMetadata(videoFile string) (video.Metadata, error) {
 		return vmeta, fmt.Errorf("FfprobeExtractMetadata() exec error: %w", err)
 	}
 
+	// A temporary structures to unmarshal JSON from ffprobe output.
+	type metadata struct {
+		CodecName  string  `json:"codec_name,omitempty"`
+		FrameRate  string  `json:"r_frame_rate,omitempty"`
+		Duration   float64 `json:"duration,omitempty,string"`
+		Width      int     `json:"width,omitempty"`
+		Height     int     `json:"height,omitempty"`
+		BitRate    int     `json:"bit_rate,omitempty,string"`
+		FrameCount int     `json:"nb_frames,omitempty,string"`
+	}
 	// Unmarshal metadata from both "streams" and "format" JSON objects.
 	meta := &struct {
 		Streams []metadata
 		Format  metadata
 	}{}
-
 	if err := json.Unmarshal(out, &meta); err != nil {
 		return vmeta, fmt.Errorf("FfprobeExtractMetadata() json.Unmarshal: %w", err)
 	}
 	logging.Debugf("%s %+v", videoFile, meta)
+
 	vmeta = video.Metadata(meta.Streams[0])
 	// For mkv container Streams does not contain duration, so we have to look into Format.
 	vmeta.Duration = math.Max(vmeta.Duration, meta.Format.Duration)

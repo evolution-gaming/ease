@@ -85,12 +85,13 @@ func Test_FfprobeExtractMetadata(t *testing.T) {
 	videoFile := "../../testdata/video/testsrc02.mp4"
 	t.Run("Should extract VideoMetadata from video file", func(t *testing.T) {
 		want := video.Metadata{
-			Duration:  10,
-			Width:     1280,
-			Height:    720,
-			BitRate:   86740,
-			CodecName: "h264",
-			FrameRate: "24/1",
+			Duration:   10,
+			Width:      1280,
+			Height:     720,
+			BitRate:    86740,
+			FrameCount: 240,
+			CodecName:  "h264",
+			FrameRate:  "24/1",
 		}
 
 		got, err := FfprobeExtractMetadata(videoFile)

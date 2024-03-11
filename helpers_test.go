@@ -12,6 +12,8 @@ import (
 	"os"
 	"path"
 	"testing"
+
+	"github.com/evolution-gaming/ease/internal/tools"
 )
 
 // fixPlanConfig fixture provides simple encoding plan.
@@ -20,17 +22,17 @@ import (
 // purposes of tests it is irrelevant if we use realistic encoder or just a
 // simple file copy.
 func fixPlanConfig(t *testing.T) (fPath string) {
-	payload := []byte(fmt.Sprintf(`{
+	payload := []byte(`{
 		"Inputs": [
 			"testdata/video/testsrc01.mp4"
 		],
 		"Schemes": [
 			{
 				"Name": "simple_src_duplication",
-				"CommandTpl": ["cp -v ",  "%%INPUT%% ", "%%OUTPUT%%.mp4"]
+				"CommandTpl": ["cp -v ",  "%INPUT% ", "%OUTPUT%.mp4"]
 			}
 		]
-	}`))
+	}`)
 	fPath = path.Join(t.TempDir(), "minimal.json")
 	err := os.WriteFile(fPath, payload, fs.FileMode(0o644))
 	if err != nil {
@@ -77,4 +79,33 @@ func fixCreateFakeFfmpegAndPutItOnPath(t *testing.T) {
 	if _, err := io.Copy(dst, src); err != nil {
 		t.Fatalf("Failure copying: %v", err)
 	}
+}
+
+// fixPlanConfigMisalignedFrames fixture returns a plan which will result in encoded file
+// shorter by 1 frame e.g. first frame dropped.
+//
+// Note: this plan assumes ffmpeg doing actual encoding!
+func fixPlanConfigMisalignedFrames(t *testing.T) (fPath string) {
+	ffmpegPath, err := tools.FfmpegPath()
+	if err != nil {
+		t.Fatalf("ffmpeg not found: %v", err)
+	}
+	payload := []byte(fmt.Sprintf(`{
+		"Inputs": [
+			"testdata/video/testsrc01.mp4"
+		],
+		"Schemes": [
+			{
+				"Name": "misaligned",
+				"CommandTpl": ["%s -i %%INPUT%% -vf \"trim=start_frame=1\" %%OUTPUT%%.mp4"]
+			}
+		]
+	}`, ffmpegPath))
+
+	fPath = path.Join(t.TempDir(), "misaligned_plan.json")
+	err = os.WriteFile(fPath, payload, fs.FileMode(0o644))
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	return
 }

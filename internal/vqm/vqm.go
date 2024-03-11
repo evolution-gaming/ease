@@ -18,6 +18,7 @@ import (
 	"text/template"
 
 	"github.com/evolution-gaming/ease/internal/logging"
+	"github.com/evolution-gaming/ease/internal/tools"
 	"github.com/google/shlex"
 )
 
@@ -125,18 +126,35 @@ type ffmpegVMAF struct {
 }
 
 func (f *ffmpegVMAF) Measure() error {
+	var err error
+
 	if f.measured {
 		return errors.New("Measure() already executed")
 	}
+
+	// First we should check if source and compressed files have equal number of
+	// frames, if it is not the case - then VQM will be off.
+	srcMeta, err := tools.FfprobeExtractMetadata(f.sourceFile)
+	if err != nil {
+		return fmt.Errorf("source file metadata: %w", err)
+	}
+	compressedMeta, err := tools.FfprobeExtractMetadata(f.compressedFile)
+	if err != nil {
+		return fmt.Errorf("compressed file metadata: %w", err)
+	}
+	if srcMeta.FrameCount != compressedMeta.FrameCount {
+		return fmt.Errorf("frame count mismatch: source %v != compressed %v", srcMeta.FrameCount, compressedMeta.FrameCount)
+	}
+
 	cmd := exec.Command(f.exePath, f.ffmpegArgs...) //#nosec G204
 	logging.Debugf("VQM tool command: %v", cmd.Args)
-	var err error
 	f.output, err = cmd.CombinedOutput()
 	if err != nil {
 		logging.Infof("VQM tool execution failure:\n%s", cmd.String())
 		logging.Infof("VQM tool output:\n%s", f.output)
 		return fmt.Errorf("VQM calculation error: %w", err)
 	}
+
 	f.measured = true
 	return nil
 }

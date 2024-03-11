@@ -165,6 +165,16 @@ func Test_RunApp_Run_WithInvalidApplicationConfig(t *testing.T) {
 	assert.ErrorAs(t, gotErr, &expErr, "Expecting error of type AppError")
 }
 
+func Test_RunApp_Run_MisalignedFrames(t *testing.T) {
+	plan := fixPlanConfigMisalignedFrames(t)
+	app := CreateRunCommand()
+	gotErr := app.Run([]string{"-plan", plan, "-out-dir", t.TempDir()})
+
+	var expErr *AppError
+	assert.ErrorAs(t, gotErr, &expErr, "Expecting error of type AppError")
+	assert.ErrorContains(t, gotErr, "VQM calculations had errors, see log for reasons")
+}
+
 // Functional tests for other sub-commands..
 func TestIntegration_AllSubcommands(t *testing.T) {
 	tempDir := t.TempDir()

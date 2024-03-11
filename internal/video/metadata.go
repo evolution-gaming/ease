@@ -8,12 +8,13 @@ package video
 
 // Metadata type contains useful video stream metadata.
 type Metadata struct {
-	CodecName string  `json:"codec_name,omitempty"`
-	FrameRate string  `json:"r_frame_rate,omitempty"`
-	Duration  float64 `json:"duration,omitempty,string"`
-	Width     int     `json:"width,omitempty"`
-	Height    int     `json:"height,omitempty"`
-	BitRate   int     `json:"bit_rate,omitempty,string"`
+	CodecName  string
+	FrameRate  string
+	Duration   float64
+	Width      int
+	Height     int
+	BitRate    int
+	FrameCount int
 }
 
 // MetadataExtractor is the interface that wraps ExtractMetadata method.
