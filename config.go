@@ -23,7 +23,7 @@ import (
 
 var (
 	ErrInvalidConfig  = errors.New("invalid configuration")
-	defaultReportFile = "report.json"
+	defaultReportFile = "report.csv"
 )
 
 // Config represent application configuration.

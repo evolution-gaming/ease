@@ -25,13 +25,13 @@ import (
 var saveResultFile = flag.Bool("save-result", false, "Save result file")
 
 func TestFfmpegVMAFImplementsMeasurer(t *testing.T) {
-	// Test that tool implement Measurer interface.
+	// Test that tool implements Measurer interface.
 	var _ Measurer = &ffmpegVMAF{}
 }
 
 func TestFfmpegVMAF(t *testing.T) {
 	var tool Measurer // tool under test
-	var result Result // result from tool under test
+	var aggMetrics *AggregateMetric
 
 	wrkDir := t.TempDir()
 	ffmpegExePath, _ := tools.FfmpegPath()
@@ -61,17 +61,44 @@ func TestFfmpegVMAF(t *testing.T) {
 		assert.NoError(t, err)
 	})
 
-	t.Run("Call GetResult()", func(t *testing.T) {
+	t.Run("Call GetMetrics()", func(t *testing.T) {
 		var err error
-		result, err = tool.GetResult()
+		aggMetrics, err = tool.GetMetrics()
 		assert.NoError(t, err)
 	})
 
-	t.Run("VideoQualityResult should have metrics", func(t *testing.T) {
-		assert.NotEqual(t, result.Metrics.VMAF, 0, "No VMAF metric detected")
-		assert.NotEqual(t, result.Metrics.PSNR, 0, "No PSNR metric detected")
-		assert.NotEqual(t, result.Metrics.MS_SSIM, 0, "No MS-SSIM metric detected")
+	t.Run("Aggregate metrics should be non-zero", func(t *testing.T) {
+		assert.NotEqual(t, aggMetrics.VMAF.Mean, float64(0), "No VMAF metric detected")
+		assert.NotEqual(t, aggMetrics.PSNR.Mean, float64(0), "No PSNR metric detected")
 	})
+}
+
+func TestFfmpegVMAF_WithMSSSIM(t *testing.T) {
+	ffmpegExePath, _ := tools.FfmpegPath()
+	libvmafModelPath, _ := tools.FindLibvmafModel()
+	srcFile := "../../testdata/video/testsrc01.mp4"
+	compressedFile := "../../testdata/video/testsrc01.mp4"
+
+	// Enable MS-SSIM calculation feature, which is not enabled by default.
+	ffmpegVMAFTemplate := "-hide_banner -i {{.CompressedFile}} -i {{.SourceFile}} " +
+		"-lavfi libvmaf=n_subsample=1:log_path={{.ResultFile}}:feature=name=psnr|name=float_ms_ssim:" +
+		"log_fmt=json:model=path={{.ModelPath}}:n_threads={{.NThreads}} -f null -"
+
+	tool, err := NewFfmpegVMAF(&FfmpegVMAFConfig{
+		FfmpegPath:         ffmpegExePath,
+		LibvmafModelPath:   libvmafModelPath,
+		FfmpegVMAFTemplate: ffmpegVMAFTemplate,
+		ResultFile:         path.Join(t.TempDir(), "result_2.json"),
+	}, compressedFile, srcFile)
+	assert.NoError(t, err)
+
+	assert.NoError(t, tool.Measure())
+
+	aggMetrics, err := tool.GetMetrics()
+	assert.NoError(t, err)
+	assert.NotEqual(t, aggMetrics.VMAF.Mean, float64(0), "No VMAF metric detected")
+	assert.NotEqual(t, aggMetrics.PSNR.Mean, float64(0), "No PSNR metric detected")
+	assert.NotEqual(t, aggMetrics.MS_SSIM.Mean, float64(0), "No MS-SSIM metric detected")
 }
 
 func TestFfmpegVMAF_Negative(t *testing.T) {
@@ -112,10 +139,10 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 		return tool
 	}
 
-	t.Run("Call GetResult() before Measure() should error", func(t *testing.T) {
-		wantErrMsg := "GetResult() depends on Measure() called first"
+	t.Run("Call GetMetrics() before Measure() should error", func(t *testing.T) {
+		wantErrMsg := "GetMetrics() depends on Measure() called first"
 		tool := getValidTool()
-		_, err := tool.GetResult()
+		_, err := tool.GetMetrics()
 		require.Error(t, err)
 		assert.ErrorContains(t, err, wantErrMsg)
 	})

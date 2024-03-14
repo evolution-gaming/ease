@@ -20,6 +20,8 @@ import (
 	"github.com/evolution-gaming/ease/internal/logging"
 	"github.com/evolution-gaming/ease/internal/tools"
 	"github.com/google/shlex"
+	"gonum.org/v1/gonum/floats"
+	"gonum.org/v1/gonum/stat"
 )
 
 var DefaultFfmpegVMAFTemplate = "-hide_banner -i {{.CompressedFile}} -i {{.SourceFile}} " +
@@ -31,23 +33,7 @@ var DefaultFfmpegVMAFTemplate = "-hide_banner -i {{.CompressedFile}} -i {{.Sourc
 type Measurer interface {
 	// Measure should run actual VQM measuring process
 	Measure() error
-	// GetResult will retrieve VQM measurement Result
-	GetResult() (Result, error)
-}
-
-// Result represents Measurer tool execution result.
-type Result struct {
-	SourceFile     string
-	CompressedFile string
-	ResultFile     string
-	Metrics        VideoQualityMetrics
-}
-
-// VideoQualityMetrics is a struct of meaningful Video Quality Metrics.
-type VideoQualityMetrics struct {
-	PSNR    float64
-	MS_SSIM float64
-	VMAF    float64
+	GetMetrics() (*AggregateMetric, error)
 }
 
 // FfmpegVMAFConfig exposes parameters for ffmpegVMAF creation.
@@ -159,45 +145,70 @@ func (f *ffmpegVMAF) Measure() error {
 	return nil
 }
 
-func (f *ffmpegVMAF) GetResult() (Result, error) {
-	var vqr Result
-
-	// Depend on Measure() being executed.
-	if !f.measured {
-		return vqr, errors.New("GetResult() depends on Measure() called first")
-	}
-
-	resData, err := os.ReadFile(f.resultFile)
-	if err != nil {
-		return vqr, fmt.Errorf("VideoQualityTool.GetResult() reading %s: %w", f.resultFile, err)
-	}
-	vqm, err := f.unmarshalResultJSON(resData)
-	if err != nil {
-		return vqr, fmt.Errorf("VideoQualityTool.GetResult() in resultParser(): %w", err)
-	}
-	vqr = Result{
-		Metrics:        vqm,
-		SourceFile:     f.sourceFile,
-		CompressedFile: f.compressedFile,
-		ResultFile:     f.resultFile,
-	}
-	return vqr, nil
+type AggregateMetric struct {
+	VMAF    Metric
+	PSNR    Metric
+	MS_SSIM Metric
 }
 
-// unmarshalResultJSON will unmarshal libvmaf JSON result to VideoQualityMetrics.
-func (f *ffmpegVMAF) unmarshalResultJSON(data []byte) (VideoQualityMetrics, error) {
-	var vqm VideoQualityMetrics
-	res := &ffmpegVMAFResult{}
+type Metric struct {
+	Mean         float64
+	HarmonicMean float64
+	Min          float64
+	Max          float64
+	StDev        float64
+	Variance     float64
+}
 
-	if err := json.Unmarshal(data, res); err != nil {
-		return vqm, fmt.Errorf("parseResult() unmarshal JSON: %w", err)
+func (f *ffmpegVMAF) GetMetrics() (*AggregateMetric, error) {
+	if !f.measured {
+		return nil, errors.New("GetMetrics() depends on Measure() called first")
 	}
-	vqm = VideoQualityMetrics{
-		VMAF:    res.PooledMetrics.VMAF.Mean,
-		PSNR:    res.PooledMetrics.PSNR.Mean,
-		MS_SSIM: res.PooledMetrics.MS_SSIM.Mean,
+
+	am := &AggregateMetric{}
+	// Unmarshal metrics from result file.
+	j, err := os.Open(f.resultFile)
+	if err != nil {
+		return nil, fmt.Errorf("opening file: %w", err)
 	}
-	return vqm, nil
+
+	var metrics FrameMetrics
+	err2 := metrics.FromFfmpegVMAF(j)
+	if err2 != nil {
+		return nil, fmt.Errorf("parsing JSON: %w", err2)
+	}
+
+	// Convert to vectors to apply aggregations.
+	m := struct {
+		VMAF    []float64
+		PSNR    []float64
+		MS_SSIM []float64
+	}{}
+	for _, v := range metrics {
+		m.VMAF = append(m.VMAF, v.VMAF)
+		m.PSNR = append(m.PSNR, v.PSNR)
+		m.MS_SSIM = append(m.MS_SSIM, v.MS_SSIM)
+	}
+
+	am.VMAF.Min = floats.Min(m.VMAF)
+	am.VMAF.Max = floats.Max(m.VMAF)
+	am.VMAF.HarmonicMean = stat.HarmonicMean(m.VMAF, nil)
+	am.VMAF.Variance = stat.Variance(m.VMAF, nil)
+	am.VMAF.Mean, am.VMAF.StDev = stat.MeanStdDev(m.VMAF, nil)
+
+	am.PSNR.Min = floats.Min(m.PSNR)
+	am.PSNR.Max = floats.Max(m.PSNR)
+	am.PSNR.HarmonicMean = stat.HarmonicMean(m.PSNR, nil)
+	am.PSNR.Variance = stat.Variance(m.PSNR, nil)
+	am.PSNR.Mean, am.PSNR.StDev = stat.MeanStdDev(m.PSNR, nil)
+
+	am.MS_SSIM.Min = floats.Min(m.MS_SSIM)
+	am.MS_SSIM.Max = floats.Max(m.MS_SSIM)
+	am.MS_SSIM.HarmonicMean = stat.HarmonicMean(m.MS_SSIM, nil)
+	am.MS_SSIM.Variance = stat.Variance(m.MS_SSIM, nil)
+	am.MS_SSIM.Mean, am.MS_SSIM.StDev = stat.MeanStdDev(m.MS_SSIM, nil)
+
+	return am, nil
 }
 
 // This and following are helper structs for libvmaf JSON result.

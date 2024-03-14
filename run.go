@@ -7,7 +7,7 @@
 package main
 
 import (
-	"encoding/json"
+	"encoding/csv"
 	"errors"
 	"flag"
 	"fmt"
@@ -19,7 +19,9 @@ import (
 	"github.com/evolution-gaming/ease/internal/analysis"
 	"github.com/evolution-gaming/ease/internal/encoding"
 	"github.com/evolution-gaming/ease/internal/logging"
+	"github.com/evolution-gaming/ease/internal/metric"
 	"github.com/evolution-gaming/ease/internal/vqm"
+	"github.com/jszwec/csvutil"
 )
 
 // CreateRunCommand will create Commander instance from App.
@@ -33,8 +35,9 @@ Examples:
   ease run -plan plan.json -out-dir path/to/output/dir`
 
 	app := &App{
-		fs: flag.NewFlagSet("run", flag.ContinueOnError),
-		gf: globalFlags{},
+		fs:     flag.NewFlagSet("run", flag.ContinueOnError),
+		gf:     globalFlags{},
+		mStore: metric.NewStore(),
 	}
 	app.gf.Register(app.fs)
 	app.fs.StringVar(&app.flPlan, "plan", "", "Encoding plan configuration file")
@@ -64,6 +67,8 @@ type App struct {
 	gf globalFlags
 	// Dry run mode flag
 	flDryRun bool
+	// Encoding and VQ metric store
+	mStore *metric.Store
 }
 
 // init will do App state initialization.
@@ -122,26 +127,48 @@ func (a *App) init(args []string) error {
 }
 
 // encode will run encoding stage of plan execution.
-func (a *App) encode(plan encoding.Plan) (*report, error) {
-	rep := &report{}
-
+func (a *App) encode(plan encoding.Plan) error {
 	result, err := plan.Run()
 	// Make sure to log any errors from RunResults.
 	if ur := unrollResultErrors(result.RunResults); ur != "" {
 		logging.Infof("Run had following ERRORS:\n%s", ur)
 	}
 	if err != nil {
-		return rep, err
+		return fmt.Errorf("plan run: %w", err)
 	}
-	rep.EncodingResult = result
+
+	// Store encoding related metrics into mStore.
+	for _, res := range result.RunResults {
+		id := a.mStore.Insert(metric.Record{
+			Name:             res.Name,
+			SourceFile:       res.SourceFile,
+			CompressedFile:   res.CompressedFile,
+			Cmd:              res.Cmd,
+			HStime:           res.Stats.HStime,
+			HUtime:           res.Stats.HUtime,
+			HElapsed:         res.Stats.HElapsed,
+			Stime:            res.Stats.Stime,
+			Utime:            res.Stats.Utime,
+			Elapsed:          res.Stats.Elapsed,
+			MaxRss:           res.Stats.MaxRss,
+			VideoDuration:    res.VideoDuration,
+			AvgEncodingSpeed: res.AvgEncodingSpeed,
+		})
+		logging.Debugf("Storing record (id=%v) with encoding metrics", id)
+	}
 
 	// Do VQM calculations for encoded videos.
 	var vqmFailed bool = false
+	for _, id := range a.mStore.GetIDs() {
+		record, err := a.mStore.Get(id)
+		if err != nil {
+			vqmFailed = true
+			logging.Infof("Error retrieving record from metric store: %s", err)
+			continue
+		}
 
-	for i := range result.RunResults {
-		r := &result.RunResults[i]
-		resFile := strings.TrimSuffix(r.CompressedFile, filepath.Ext(r.CompressedFile)) + "_vqm.json"
-
+		// Derive result file path.
+		resFile := strings.TrimSuffix(record.CompressedFile, filepath.Ext(record.CompressedFile)) + "_vqm.json"
 		// Create VMAF tool configuration.
 		vmafCfg := vqm.FfmpegVMAFConfig{
 			FfmpegPath:         a.cfg.FfmpegPath.Value(),
@@ -150,74 +177,88 @@ func (a *App) encode(plan encoding.Plan) (*report, error) {
 			ResultFile:         resFile,
 		}
 
-		vqmTool, err2 := vqm.NewFfmpegVMAF(&vmafCfg, r.CompressedFile, r.SourceFile)
+		vqmTool, err2 := vqm.NewFfmpegVMAF(&vmafCfg, record.CompressedFile, record.SourceFile)
 		if err2 != nil {
 			vqmFailed = true
 			logging.Infof("Error while initializing VQM tool: %s", err2)
 			continue
 		}
 
-		logging.Infof("Start measuring VQMs for %s", r.CompressedFile)
+		logging.Infof("Start measuring VQMs for %s", record.CompressedFile)
 		if err2 = vqmTool.Measure(); err2 != nil {
 			vqmFailed = true
-			logging.Infof("Failed calculate VQM for %s due to error: %s", r.CompressedFile, err2)
+			logging.Infof("Failed calculate VQM for %s due to error: %s", record.CompressedFile, err2)
 			continue
 		}
 
-		res, err2 := vqmTool.GetResult()
+		res, err2 := vqmTool.GetMetrics()
 		if err2 != nil {
-			logging.Infof("Error while getting VQM result for %s: %s", r.CompressedFile, err2)
+			vqmFailed = true
+			logging.Infof("Error while getting metrics for %s: %s", record.CompressedFile, err2)
+			continue
 		}
-		rep.VQMResults = append(rep.VQMResults, namedVqmResult{Name: r.Name, Result: res})
 
-		logging.Infof("Done measuring VQMs for %s", r.CompressedFile)
+		// Update record with VQ metrics.
+		record.VQMResultFile = resFile
+		record.PSNRMin = res.PSNR.Min
+		record.PSNRMax = res.PSNR.Max
+		record.PSNRMean = res.PSNR.Mean
+		record.PSNRHarmonicMean = res.PSNR.HarmonicMean
+		record.PSNRStDev = res.PSNR.StDev
+		record.PSNRVariance = res.PSNR.Variance
+
+		record.VMAFMin = res.VMAF.Min
+		record.VMAFMax = res.VMAF.Max
+		record.VMAFMean = res.VMAF.Mean
+		record.VMAFHarmonicMean = res.VMAF.HarmonicMean
+		record.VMAFStDev = res.VMAF.StDev
+		record.VMAFVariance = res.VMAF.Variance
+
+		record.MS_SSIMMin = res.MS_SSIM.Min
+		record.MS_SSIMMax = res.MS_SSIM.Max
+		record.MS_SSIMMean = res.MS_SSIM.Mean
+		record.MS_SSIMHarmonicMean = res.MS_SSIM.HarmonicMean
+		record.MS_SSIMStDev = res.MS_SSIM.StDev
+		record.MS_SSIMVariance = res.MS_SSIM.Variance
+
+		if err := a.mStore.Update(id, record); err != nil {
+			vqmFailed = true
+			logging.Infof("Error updating record (id=%v) for %s: %s", id, record.CompressedFile, err2)
+			continue
+		}
+		logging.Debugf("Updating record (id=%v) with VQ metrics", id)
+		logging.Infof("Done measuring VQMs for %s", record.CompressedFile)
 	}
 
 	if vqmFailed {
-		return rep, errors.New("VQM calculations had errors, see log for reasons")
+		return errors.New("VQM calculations had errors, see log for reasons")
 	}
 
-	return rep, nil
+	return nil
 }
 
 // analyse will run analysis stage of plan execution.
-func (a *App) analyse(rep *report) error {
-	// Extract data to work with.
-	srcData := extractSourceData(rep)
-	d, err := json.MarshalIndent(srcData, "", "  ")
-	if err != nil {
-		return err
-	}
-	logging.Debugf("Analysis for:\n%s", d)
-
-	// TODO: this is a good place to do goroutines iterate over sources and do stuff.
-
-	for _, v := range srcData {
+func (a *App) analyse() error {
+	for _, id := range a.mStore.GetIDs() {
+		v, err := a.mStore.Get(id)
+		if err != nil {
+			return fmt.Errorf("fetching record by id (%v): %w", id, err)
+		}
 		// Create separate dir for results.
 		base := path.Base(v.CompressedFile)
 		base = strings.TrimSuffix(base, path.Ext(base))
 		logging.Infof("Analysing %s", v.CompressedFile)
 		resDir := path.Join(a.flOutDir, base)
-		if err := os.MkdirAll(resDir, os.FileMode(0o755)); err != nil {
+		if err = os.MkdirAll(resDir, os.FileMode(0o755)); err != nil {
 			return fmt.Errorf("creating directory: %w", err)
 		}
 
-		compressedFile := v.CompressedFile
-		vqmFile := v.VqmResultFile
-		// In case compressed and VQM result file path in not absolute we assume
-		// it must be relative to WorkDir.
-		if !path.IsAbs(compressedFile) {
-			compressedFile = path.Join(v.WorkDir, compressedFile)
-		}
-		if !path.IsAbs(vqmFile) {
-			vqmFile = path.Join(v.WorkDir, vqmFile)
-		}
 		bitratePlot := path.Join(resDir, base+"_bitrate.png")
 		vmafPlot := path.Join(resDir, base+"_vmaf.png")
 		psnrPlot := path.Join(resDir, base+"_psnr.png")
 		msssimPlot := path.Join(resDir, base+"_ms-ssim.png")
 
-		jsonFd, err := os.Open(vqmFile)
+		jsonFd, err := os.Open(v.VQMResultFile)
 		if err != nil {
 			return fmt.Errorf("opening VQM file: %w", err)
 		}
@@ -245,7 +286,7 @@ func (a *App) analyse(rep *report) error {
 		skipPSNR := all(psnrs, 0)
 		skipMSSSIM := all(msssims, 0)
 
-		if err := analysis.MultiPlotBitrate(compressedFile, bitratePlot, a.cfg.FfprobePath.Value()); err != nil {
+		if err := analysis.MultiPlotBitrate(v.CompressedFile, bitratePlot, a.cfg.FfprobePath.Value()); err != nil {
 			return fmt.Errorf("creating bitrate plot: %w", err)
 		}
 		logging.Infof("Bitrate plot done: %s", bitratePlot)
@@ -281,41 +322,37 @@ func (a *App) analyse(rep *report) error {
 	return nil
 }
 
-func (a *App) saveJSONReport(rep *report) error {
-	// Write report of encoding results.
-	reportPath := path.Join(a.flOutDir, a.cfg.ReportFileName.Value())
-	reportOut, err := os.Create(reportPath)
-	if err != nil {
-		return fmt.Errorf("creating report file: %w", err)
-	}
-	defer reportOut.Close()
-	return rep.WriteJSON(reportOut)
-}
+// saveReport writes recorded metrics to report file.
+func (a *App) saveReport() error {
+	var report []metric.Record
 
-func (a *App) saveCSVReport(rep *report) error {
-	// Convert report to record-like representation to be written as CSV.
-	csvReport, err := newCsvReport(rep)
-	if err != nil {
-		return fmt.Errorf("converting to record-like representation: %w", err)
+	for _, id := range a.mStore.GetIDs() {
+		r, err := a.mStore.Get(id)
+		if err != nil {
+			return fmt.Errorf("getting record (id=%v) from metric store: %w", id, err)
+		}
+		report = append(report, r)
 	}
-	// TODO: For time being just replace ".json" extension with ".csv". If need be this
-	// can be later exposed as separate configuration option.
+
 	reportPath := path.Join(a.flOutDir, a.cfg.ReportFileName.Value())
-	reportPath = strings.TrimSuffix(reportPath, ".json") + ".csv"
 	reportOut, err := os.Create(reportPath)
 	if err != nil {
 		return fmt.Errorf("creating CSV report file: %w", err)
 	}
 	defer reportOut.Close()
 
-	if err := csvReport.WriteCSV(reportOut); err != nil {
+	w := csv.NewWriter(reportOut)
+	if err := csvutil.NewEncoder(w).Encode(report); err != nil {
 		return fmt.Errorf("writing CSV report: %w", err)
 	}
+	w.Flush()
+
 	return nil
 }
 
 // Run is main entry point into App execution.
 func (a *App) Run(args []string) error {
+	logging.Infof("ease version: %s", vInfo)
 	if err := a.init(args); err != nil {
 		return err
 	}
@@ -333,7 +370,12 @@ func (a *App) Run(args []string) error {
 		return &AppError{exitCode: 1, msg: err.Error()}
 	}
 
-	plan := encoding.NewPlan(pc, a.flOutDir)
+	// To avoid ambiguity, resolve output path to absolute representation.
+	outDirPath, err := filepath.Abs(a.flOutDir)
+	if err != nil {
+		return &AppError{exitCode: 1, msg: err.Error()}
+	}
+	plan := encoding.NewPlan(pc, outDirPath)
 
 	// Early return in "dry run" mode.
 	if a.flDryRun {
@@ -342,23 +384,20 @@ func (a *App) Run(args []string) error {
 	}
 
 	// Run encode stage.
-	rep, err := a.encode(plan)
-	if err != nil {
+	if err = a.encode(plan); err != nil {
 		return &AppError{exitCode: 1, msg: err.Error()}
 	}
 
-	// Save reports to filesystem.
-	if err = a.saveJSONReport(rep); err != nil {
-		return &AppError{exitCode: 1, msg: err.Error()}
-	}
-	if err = a.saveCSVReport(rep); err != nil {
+	// Save report.
+	if err = a.saveReport(); err != nil {
 		return &AppError{exitCode: 1, msg: err.Error()}
 	}
 
 	// Run analysis stage.
-	if err = a.analyse(rep); err != nil {
+	if err = a.analyse(); err != nil {
 		return &AppError{exitCode: 1, msg: err.Error()}
 	}
 
+	logging.Info("Done")
 	return nil
 }

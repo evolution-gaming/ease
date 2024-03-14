@@ -27,8 +27,9 @@ func getVmafValues(t *testing.T) []float64 {
 
 	j, err := os.Open(frameMetricsFile)
 	require.NoError(t, err)
+	defer j.Close()
 
-	err2 := metrics.FromJSON(j)
+	err2 := json.NewDecoder(j).Decode(&metrics)
 	require.NoError(t, err2, "Error Unmarshaling metrics")
 
 	for _, v := range metrics {

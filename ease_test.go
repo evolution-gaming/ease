@@ -6,12 +6,15 @@
 package main
 
 import (
+	"encoding/csv"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
 	"testing"
+
+	"github.com/evolution-gaming/ease/internal/encoding"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -23,24 +26,33 @@ func Test_RunApp_Run(t *testing.T) {
 	ePlan := fixPlanConfig(t)
 	outDir := path.Join(tempDir, "out")
 
-	t.Log("Should succeed execution with -plan flag")
-	// Run command will generate encoding artifacts and analysis artifacts.
-	err := CreateRunCommand().Run([]string{"-plan", ePlan, "-out-dir", outDir})
-	assert.NoError(t, err, "Unexpected error running encode")
+	t.Run("Should succeed execution with -plan flag", func(t *testing.T) {
+		// Run command will generate encoding artifacts and analysis artifacts.
+		app := CreateRunCommand()
+		err := app.Run([]string{"-plan", ePlan, "-out-dir", outDir})
+		assert.NoError(t, err, "Unexpected error running encode")
+	})
 
-	buf, err2 := os.ReadFile(path.Join(outDir, "report.json"))
-	assert.NoError(t, err2, "Unexpected error reading report.json")
-	assert.Greater(t, len(buf), 0, "No data in report file")
+	t.Run("Should have a CSV report file", func(t *testing.T) {
+		fd, err2 := os.Open(path.Join(outDir, "report.csv"))
+		assert.NoError(t, err2, "Unexpected error opening report.csv")
+		defer fd.Close()
+		records, err3 := csv.NewReader(fd).ReadAll()
+		assert.NoError(t, err3, "Unexpected error reading CSV records")
+		// Expect 2 records: CSV header + record for 1 encoding.
+		assert.Len(t, records, 2, "Unexpected number of records in report file")
+	})
 
-	t.Log("Analyse should create bitrate, VMAF, PSNR and SSIM plots")
-	bitratePlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*bitrate.png", outDir))
-	assert.Len(t, bitratePlots, 1, "Expecting one file for bitrate plot")
+	t.Run("Should create plots", func(t *testing.T) {
+		bitratePlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*bitrate.png", outDir))
+		assert.Len(t, bitratePlots, 1, "Expecting one file for bitrate plot")
 
-	vmafPlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*vmaf.png", outDir))
-	assert.Len(t, vmafPlots, 1, "Expecting one file for VMAF plot")
+		vmafPlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*vmaf.png", outDir))
+		assert.Len(t, vmafPlots, 1, "Expecting one file for VMAF plot")
 
-	psnrPlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*psnr.png", outDir))
-	assert.Len(t, psnrPlots, 1, "Expecting one file for PSNR plot")
+		psnrPlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*psnr.png", outDir))
+		assert.Len(t, psnrPlots, 1, "Expecting one file for PSNR plot")
+	})
 }
 
 /*************************************
@@ -186,7 +198,7 @@ func TestIntegration_AllSubcommands(t *testing.T) {
 	err := CreateRunCommand().Run([]string{"-plan", ePlan, "-out-dir", outDir})
 	require.NoError(t, err)
 
-	t.Run("Vqmplot should create plots", func(t *testing.T) {
+	t.Run("vqmplot should create plots", func(t *testing.T) {
 		var vqmFile string
 		// Need to get file with VQMs from encode stage.
 		m, _ := filepath.Glob(fmt.Sprintf("%s/*vqm.json", outDir))
@@ -203,7 +215,7 @@ func TestIntegration_AllSubcommands(t *testing.T) {
 		}
 	})
 
-	t.Run("Bitrate should create bitrate plot", func(t *testing.T) {
+	t.Run("bitrate should create bitrate plot", func(t *testing.T) {
 		var compressedFile string
 		// Need to get compressed file from encode stage.
 		m, _ := filepath.Glob(fmt.Sprintf("%s/*.mp4", outDir))
@@ -214,5 +226,20 @@ func TestIntegration_AllSubcommands(t *testing.T) {
 		err := CreateBitrateCommand().Run([]string{"-i", compressedFile, "-o", outFile})
 		assert.NoError(t, err, "Unexpected error running bitrate")
 		assert.FileExists(t, outFile, "bitrate plot file missing")
+	})
+
+	t.Run("new-plan should create plan template", func(t *testing.T) {
+		planFile := path.Join(t.TempDir(), "plan.json")
+		err := CreateNewPlanCommand().Run([]string{"-i", "video1.mp4", "-o", planFile})
+		assert.NoError(t, err)
+
+		b, err := os.ReadFile(planFile)
+		assert.NoError(t, err)
+		pc, err := encoding.NewPlanConfigFromJSON(b)
+		assert.NoError(t, err)
+
+		assert.Len(t, pc.Inputs, 1)
+		assert.Equal(t, pc.Inputs[0], "video1.mp4")
+		assert.True(t, len(pc.Schemes) > 0)
 	})
 }

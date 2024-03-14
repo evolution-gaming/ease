@@ -72,7 +72,7 @@ func (s *EncoderCmd) Run() RunResult {
 		r.AddError(err)
 		return r
 	} else {
-		logging.Infof("Output redirected to file: %s", f.Name())
+		logging.Debugf("Output redirected to file: %s", f.Name())
 		outWriter = io.MultiWriter(memWriter, f)
 		defer f.Close()
 	}
@@ -243,9 +243,8 @@ func (s *Plan) Run() (PlanResult, error) {
 	}
 
 	for i := range s.Commands {
-		logging.Infof("Start encoding %s -> %s", s.Commands[i].SourceFile, s.Commands[i].CompressedFile)
+		logging.Infof("Encoding %s -> %s", s.Commands[i].SourceFile, s.Commands[i].CompressedFile)
 		result.RunResults[i] = s.Commands[i].Run()
-		logging.Infof("Done encoding %s -> %s", s.Commands[i].SourceFile, s.Commands[i].CompressedFile)
 	}
 	result.EndTime = time.Now()
 

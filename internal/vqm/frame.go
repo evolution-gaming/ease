@@ -22,23 +22,6 @@ type FrameMetric struct {
 
 type FrameMetrics []FrameMetric
 
-func (fm *FrameMetrics) FromJSON(r io.Reader) error {
-	data, err := io.ReadAll(r)
-	if err != nil {
-		return fmt.Errorf("FromJSON() Read from io.Reader: %w", err)
-	}
-
-	if err := json.Unmarshal(data, fm); err != nil {
-		return fmt.Errorf("FromJSON() JSON unmarshal: %w", err)
-	}
-
-	return nil
-}
-
-func (fm *FrameMetrics) Get() []FrameMetric {
-	return []FrameMetric(*fm)
-}
-
 // FromFfmpegVMAF will Unmarshal libvmaf's JSON into FrameMetrics.
 func (fm *FrameMetrics) FromFfmpegVMAF(jsonReader io.Reader) error {
 	b, err := io.ReadAll(jsonReader)
@@ -59,18 +42,5 @@ func (fm *FrameMetrics) FromFfmpegVMAF(jsonReader io.Reader) error {
 			MS_SSIM:  v.Metrics.MS_SSIM,
 		})
 	}
-	return nil
-}
-
-func (fm *FrameMetrics) ToJSON(w io.Writer) error {
-	jDoc, err := json.MarshalIndent(fm, "", "  ")
-	if err != nil {
-		return fmt.Errorf("ToJSON() marshal: %w", err)
-	}
-
-	if _, err := w.Write(jDoc); err != nil {
-		return fmt.Errorf("ToJSON() write to Writer: %w", err)
-	}
-
 	return nil
 }
