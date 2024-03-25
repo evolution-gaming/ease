@@ -69,7 +69,7 @@ func CreateCDFPlot(values []float64, name string) (*plot.Plot, error) {
 	p.Y.Min = 0
 
 	// We are going to mutate values slice, so make a copy to avoid mangling
-	// underlying array and creating unexpected sideffect in caller's scope.
+	// underlying array and creating unexpected side-effect in caller's scope.
 	lValues := make([]float64, len(values))
 	copy(lValues, values)
 	// Make sure values are sorted
@@ -102,7 +102,7 @@ func CreateHistogramPlot(values []float64, name string) (*plot.Plot, error) {
 	p.Y.Label.Text = "N"
 
 	// We are going to mutate values slice, so make a copy to avoid mangling
-	// underlying array and creating unexpected sideffect in caller's scope.
+	// underlying array and creating unexpected side-effect in caller's scope.
 	lValues := make([]float64, len(values))
 	copy(lValues, values)
 
@@ -505,7 +505,7 @@ func horizontalLineWithLabel(y, xMin, xMax float64, label string) (*plotter.Line
 
 // createQuantileLines is helper to create vertical Quantile lines.
 func createQuantileLines(p *plot.Plot, values []float64, quantiles ...float64) []plot.Plotter {
-	var plotters []plot.Plotter
+	plotters := make([]plot.Plotter, 0, len(quantiles))
 	colorCount := len(ColorPalette)
 	for i, q := range quantiles {
 		qVal := stat.Quantile(q, stat.Empirical, values, nil)

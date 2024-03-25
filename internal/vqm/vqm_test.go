@@ -24,13 +24,8 @@ import (
 //	go test -run ^TestFfmpegVMAF ./internal/vqm -save-result
 var saveResultFile = flag.Bool("save-result", false, "Save result file")
 
-func TestFfmpegVMAFImplementsMeasurer(t *testing.T) {
-	// Test that tool implements Measurer interface.
-	var _ Measurer = &ffmpegVMAF{}
-}
-
 func TestFfmpegVMAF(t *testing.T) {
-	var tool Measurer // tool under test
+	var tool *FfmpegVMAF // tool under test
 	var aggMetrics *AggregateMetric
 
 	wrkDir := t.TempDir()
@@ -106,7 +101,7 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 	libvmafModelPath, _ := tools.FindLibvmafModel()
 
 	// Valid tool fixture.
-	getValidTool := func() Measurer {
+	getValidTool := func() *FfmpegVMAF {
 		srcFile := "../../testdata/video/testsrc01.mp4"
 		compressedFile := "../../testdata/video/testsrc01.mp4"
 		resultFile := t.TempDir() + "/result.json"
@@ -123,7 +118,7 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 	}
 
 	// Invalid tool fixture.
-	getInvalidTool := func() Measurer {
+	getInvalidTool := func() *FfmpegVMAF {
 		srcFile := "nonexistent-source"
 		compressedFile := "non-existent-compressed"
 		resultFile := t.TempDir() + "/result.json"

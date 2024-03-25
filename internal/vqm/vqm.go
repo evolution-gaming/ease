@@ -28,14 +28,6 @@ var DefaultFfmpegVMAFTemplate = "-hide_banner -i {{.CompressedFile}} -i {{.Sourc
 	"-lavfi libvmaf=n_subsample=1:log_path={{.ResultFile}}:feature=name=psnr:" +
 	"log_fmt=json:model=path={{.ModelPath}}:n_threads={{.NThreads}} -f null -"
 
-// Measurer is an interface that must be implemented by VQM tool which is capable of
-// calculating Vide Quality Metrics.
-type Measurer interface {
-	// Measure should run actual VQM measuring process
-	Measure() error
-	GetMetrics() (*AggregateMetric, error)
-}
-
 // FfmpegVMAFConfig exposes parameters for ffmpegVMAF creation.
 type FfmpegVMAFConfig struct {
 	FfmpegPath         string
@@ -45,8 +37,8 @@ type FfmpegVMAFConfig struct {
 }
 
 // NewFfmpegVMAF will initialize VQM Measurer based on ffmpeg and libvmaf.
-func NewFfmpegVMAF(cfg *FfmpegVMAFConfig, compressedFile, sourceFile string) (Measurer, error) {
-	var vqt *ffmpegVMAF
+func NewFfmpegVMAF(cfg *FfmpegVMAFConfig, compressedFile, sourceFile string) (*FfmpegVMAF, error) {
+	var vqt *FfmpegVMAF
 
 	// Too much CPU threads are also bad. This was an issue on 128 threaded AMD
 	// EPYC, ffmpeg was deadlocking at some point during VMAF calculations.
@@ -82,7 +74,7 @@ func NewFfmpegVMAF(cfg *FfmpegVMAFConfig, compressedFile, sourceFile string) (Me
 		return vqt, fmt.Errorf("NewFfmpegVMAF() prepare command: %w", err)
 	}
 
-	vqt = &ffmpegVMAF{
+	vqt = &FfmpegVMAF{
 		exePath:        cfg.FfmpegPath,
 		ffmpegArgs:     ffmpegArgs,
 		sourceFile:     sourceFile,
@@ -95,8 +87,8 @@ func NewFfmpegVMAF(cfg *FfmpegVMAFConfig, compressedFile, sourceFile string) (Me
 	return vqt, nil
 }
 
-// ffmpegVMAF defines VQM tool and implements Measurer interface.
-type ffmpegVMAF struct {
+// FfmpegVMAF defines VQM tool and implements Measurer interface.
+type FfmpegVMAF struct {
 	// Path to ffmpeg executable
 	exePath string
 	// ffmpeg command arguments
@@ -111,7 +103,7 @@ type ffmpegVMAF struct {
 	measured   bool
 }
 
-func (f *ffmpegVMAF) Measure() error {
+func (f *FfmpegVMAF) Measure() error {
 	var err error
 
 	if f.measured {
@@ -160,7 +152,7 @@ type Metric struct {
 	Variance     float64
 }
 
-func (f *ffmpegVMAF) GetMetrics() (*AggregateMetric, error) {
+func (f *FfmpegVMAF) GetMetrics() (*AggregateMetric, error) {
 	if !f.measured {
 		return nil, errors.New("GetMetrics() depends on Measure() called first")
 	}

@@ -24,8 +24,8 @@ import (
 	"github.com/jszwec/csvutil"
 )
 
-// CreateRunCommand will create Commander instance from App.
-func CreateRunCommand() Commander {
+// CreateRunCommand will create instance of App.
+func CreateRunCommand() *App {
 	longHelp := `Subcommand "run" will execute encoding plan according to definition in file
 provided as parameter to -plan flag and will calculate and report VQM
 metrics. This flag is mandatory.
@@ -49,9 +49,6 @@ Examples:
 
 	return app
 }
-
-// Make sure App implements Commander interface.
-var _ Commander = (*App)(nil)
 
 // App is subcommand application context that implements Commander interface.
 type App struct {
@@ -324,9 +321,9 @@ func (a *App) analyse() error {
 
 // saveReport writes recorded metrics to report file.
 func (a *App) saveReport() error {
-	var report []metric.Record
-
-	for _, id := range a.mStore.GetIDs() {
+	ids := a.mStore.GetIDs()
+	report := make([]metric.Record, 0, len(ids))
+	for _, id := range ids {
 		r, err := a.mStore.Get(id)
 		if err != nil {
 			return fmt.Errorf("getting record (id=%v) from metric store: %w", id, err)
