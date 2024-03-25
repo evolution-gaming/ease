@@ -17,11 +17,6 @@ import (
 	"github.com/evolution-gaming/ease/internal/logging"
 )
 
-// Commander interface should be implemented by commands and sub-commands.
-type Commander interface {
-	Run([]string) error
-}
-
 // AppError a custom error returned from CLI application.
 //
 // AppError is handy error type envisioned to be used in CLI's main.

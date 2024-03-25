@@ -21,9 +21,6 @@ import (
 	"gonum.org/v1/plot/vg/vgimg"
 )
 
-// Make sure BitrateApp implements Commander interface.
-var _ Commander = (*BitrateApp)(nil)
-
 // BitrateApp is bitrate subcommand context that implements Commander interface.
 type BitrateApp struct {
 	// Configuration object
@@ -38,8 +35,8 @@ type BitrateApp struct {
 	gf globalFlags
 }
 
-// CreateBitrateCommand will create Commander instance from BitrateApp.
-func CreateBitrateCommand() Commander {
+// CreateBitrateCommand will instance of BitrateApp.
+func CreateBitrateCommand() *BitrateApp {
 	longHelp := `Subcommand "bitrate" will create bitrate plot for given video file.`
 	app := &BitrateApp{
 		fs: flag.NewFlagSet("bitrate", flag.ContinueOnError),

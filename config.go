@@ -237,7 +237,7 @@ func (o ConfigVal[T]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(o.Value())
 }
 
-func CreateDumpConfCommand() Commander {
+func CreateDumpConfCommand() *DumpConfApp {
 	longHelp := `Command "dump-conf" will print actual application configuration taking into account
 configuration file provided and default configuration values.
 
@@ -260,9 +260,6 @@ Examples:
 }
 
 // Also define command "dump-conf" here.
-
-// Make sure App implements Commander interface.
-var _ Commander = (*DumpConfApp)(nil)
 
 // DumpConfApp is subcommand application context that implements Commander interface.
 // Although this is very simple application, but for consistency sake is is implemented in

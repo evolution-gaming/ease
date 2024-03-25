@@ -22,7 +22,6 @@ var frameMetricsFile = "../../testdata/vqm/frame_metrics.json"
 
 // getVmafValues fixture provides slice of VMAF metrics.
 func getVmafValues(t *testing.T) []float64 {
-	var values []float64
 	var metrics vqm.FrameMetrics
 
 	j, err := os.Open(frameMetricsFile)
@@ -32,6 +31,7 @@ func getVmafValues(t *testing.T) []float64 {
 	err2 := json.NewDecoder(j).Decode(&metrics)
 	require.NoError(t, err2, "Error Unmarshaling metrics")
 
+	values := make([]float64, 0, len(metrics))
 	for _, v := range metrics {
 		values = append(values, v.VMAF)
 	}

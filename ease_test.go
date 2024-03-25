@@ -102,9 +102,7 @@ func Test_RunApp_Run_FlagErrors(t *testing.T) {
 			cmd := CreateRunCommand()
 			// Discard usage output so that during test execution test output is
 			// not flooded with command Usage/Help stuff.
-			if c, ok := cmd.(*App); ok {
-				c.fs.SetOutput(io.Discard)
-			}
+			cmd.fs.SetOutput(io.Discard)
 			gotErr := cmd.Run(tc.givenArgs)
 			assert.ErrorContains(t, gotErr, tc.want)
 		})

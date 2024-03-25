@@ -166,9 +166,7 @@ func Test_DumpConfApp_Run(t *testing.T) {
 	cmd := CreateDumpConfCommand()
 
 	// Redirect output to buffer
-	if c, ok := cmd.(*DumpConfApp); ok {
-		c.out = commandOutput
-	}
+	cmd.out = commandOutput
 
 	err := cmd.Run([]string{"-conf", confFile})
 	assert.NoError(t, err, "Unexpected error running encode")
