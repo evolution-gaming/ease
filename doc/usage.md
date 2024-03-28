@@ -201,7 +201,7 @@ ease bitrate -i my_video.mpx -o by_video_bitrate.png
 Examples `vqmplot` usage:
 
 ```
-ease vqmplot -m PSNR -i libvmaf.json -o psnr.png
+ease vqmplot -m PSNR -fps 24 -i libvmaf.json -o psnr.png
 ```
 
 ## Configuration override
