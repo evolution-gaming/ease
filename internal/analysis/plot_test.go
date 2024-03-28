@@ -16,12 +16,14 @@ import (
 	"github.com/evolution-gaming/ease/internal/vqm"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"gonum.org/v1/plot/plotter"
 )
 
 var frameMetricsFile = "../../testdata/vqm/frame_metrics.json"
 
 // getVmafValues fixture provides slice of VMAF metrics.
-func getVmafValues(t *testing.T) []float64 {
+func getVmafValues(t *testing.T) plotter.XYs {
+	fps := 24.0
 	var metrics vqm.FrameMetrics
 
 	j, err := os.Open(frameMetricsFile)
@@ -31,9 +33,12 @@ func getVmafValues(t *testing.T) []float64 {
 	err2 := json.NewDecoder(j).Decode(&metrics)
 	require.NoError(t, err2, "Error Unmarshaling metrics")
 
-	values := make([]float64, 0, len(metrics))
-	for _, v := range metrics {
-		values = append(values, v.VMAF)
+	values := make(plotter.XYs, 0, len(metrics))
+	for i, v := range metrics {
+		values = append(values, plotter.XY{
+			X: float64(i) / fps,
+			Y: v.VMAF,
+		})
 	}
 
 	return values
@@ -63,10 +68,14 @@ func Test_CreateVqmPlot(t *testing.T) {
 
 func Test_CreateCDFPlot(t *testing.T) {
 	vmafs := getVmafValues(t)
+	vmafYs := make([]float64, vmafs.Len())
+	for i := 0; i < vmafs.Len(); i++ {
+		_, vmafYs[i] = vmafs.XY(i)
+	}
 	title := "Test plot title"
 
 	t.Run("Creating CDF plot should succeed", func(t *testing.T) {
-		got, err := CreateCDFPlot(vmafs, title)
+		got, err := CreateCDFPlot(vmafYs, title)
 		require.NoError(t, err)
 		assert.Equal(t, title, got.X.Label.Text, "Plot title mismatch")
 	})

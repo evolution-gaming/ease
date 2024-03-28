@@ -20,6 +20,7 @@ import (
 	"github.com/evolution-gaming/ease/internal/encoding"
 	"github.com/evolution-gaming/ease/internal/logging"
 	"github.com/evolution-gaming/ease/internal/metric"
+	"github.com/evolution-gaming/ease/internal/tools"
 	"github.com/evolution-gaming/ease/internal/vqm"
 	"github.com/jszwec/csvutil"
 )
@@ -255,6 +256,16 @@ func (a *App) analyse() error {
 		psnrPlot := path.Join(resDir, base+"_psnr.png")
 		msssimPlot := path.Join(resDir, base+"_ms-ssim.png")
 
+		// Need to get metadata of encoded video.
+		meta, err := tools.FfprobeExtractMetadata(v.CompressedFile)
+		if err != nil {
+			return fmt.Errorf("extracting metadata: %w", err)
+		}
+		fps, err := parseFraction(meta.FrameRate)
+		if err != nil {
+			return fmt.Errorf("parsing frame rate: %w", err)
+		}
+
 		jsonFd, err := os.Open(v.VQMResultFile)
 		if err != nil {
 			return fmt.Errorf("opening VQM file: %w", err)
@@ -269,19 +280,25 @@ func (a *App) analyse() error {
 			return fmt.Errorf("failed converting to FrameMetrics: %w", err)
 		}
 
-		var vmafs, psnrs, msssims []float64
+		size := len(frameMetrics)
+		vmafs := make(metricXYs, 0, size)
+		psnrs := make(metricXYs, 0, size)
+		msssims := make(metricXYs, 0, size)
 		for _, v := range frameMetrics {
-			vmafs = append(vmafs, v.VMAF)
-			psnrs = append(psnrs, v.PSNR)
-			msssims = append(msssims, v.MS_SSIM)
+			// Calculate timestamp for given frame.
+			ts := float64(v.FrameNum) / fps
+			vmafs = append(vmafs, metricXY{X: ts, Y: v.VMAF})
+			psnrs = append(psnrs, metricXY{X: ts, Y: v.PSNR})
+			msssims = append(msssims, metricXY{X: ts, Y: v.MS_SSIM})
 		}
 
 		// Since frameMetrics coming from JSON can be absent, we check for this case, e.g.
 		// if all metric values are 0 then most probable case is that metric was missing
 		// from source JSON. This is due to how unmarshaling works in Go.
-		skipVMAF := all(vmafs, 0)
-		skipPSNR := all(psnrs, 0)
-		skipMSSSIM := all(msssims, 0)
+		yIsZero := func(x metricXY) bool { return x.Y == 0 }
+		skipVMAF := all(vmafs, yIsZero)
+		skipPSNR := all(psnrs, yIsZero)
+		skipMSSSIM := all(msssims, yIsZero)
 
 		if err := analysis.MultiPlotBitrate(v.CompressedFile, bitratePlot, a.cfg.FfprobePath.Value()); err != nil {
 			return fmt.Errorf("creating bitrate plot: %w", err)

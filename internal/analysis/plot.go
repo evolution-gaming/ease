@@ -96,23 +96,15 @@ func CreateCDFPlot(values []float64, name string) (*plot.Plot, error) {
 }
 
 // CreateHistogramPlot creates histogram plot for given VQM values.
-func CreateHistogramPlot(values []float64, name string) (*plot.Plot, error) {
+func CreateHistogramPlot(metric plotter.XYer, name string) (*plot.Plot, error) {
 	p := plot.New()
 	p.X.Label.Text = name
 	p.Y.Label.Text = "N"
 
-	// We are going to mutate values slice, so make a copy to avoid mangling
-	// underlying array and creating unexpected side-effect in caller's scope.
-	lValues := make([]float64, len(values))
-	copy(lValues, values)
-
 	// A number of bins to use for histogram.
 	var bins int = 100
 
-	// Make sure values are sorted.
-	sort.Float64s(lValues)
-
-	pHist, err := plotter.NewHist(plotter.Values(lValues), bins)
+	pHist, err := plotter.NewHist(plotter.YValues{XYer: metric}, bins)
 	if err != nil {
 		return p, fmt.Errorf("CreateHistogramPlot() creating new histogram: %w", err)
 	}
@@ -126,21 +118,12 @@ func CreateHistogramPlot(values []float64, name string) (*plot.Plot, error) {
 }
 
 // CreateVqmPlot creates a plot for given VQM values.
-//
-// Since values are specified as a 1D slice - it is assumed that index into
-// slice is a frame number.
-func CreateVqmPlot(values []float64, name string) (*plot.Plot, error) {
+func CreateVqmPlot(metric plotter.XYer, name string) (*plot.Plot, error) {
 	p := plot.New()
-	p.X.Label.Text = "Frame #"
+	p.X.Label.Text = "Duration (s)"
 	p.Y.Label.Text = name
 
-	vqmXY := make(plotter.XYs, len(values))
-
-	for i, v := range values {
-		vqmXY[i].X = float64(i)
-		vqmXY[i].Y = v
-	}
-	vqmLine, err := plotter.NewLine(vqmXY)
+	vqmLine, err := plotter.NewLine(metric)
 	if err != nil {
 		return p, fmt.Errorf("CreateVqmPlot() creating new histogram: %w", err)
 	}
@@ -157,7 +140,12 @@ func CreateVqmPlot(values []float64, name string) (*plot.Plot, error) {
 //
 // Resulting plot will include the provided VQM metric plot, it's histogram plot
 // and CDF plot all in one canvas.
-func MultiPlotVqm(values []float64, metric, title, outFile string) (err error) {
+func MultiPlotVqm(vqmValues plotter.XYer, metric, title, outFile string) (err error) {
+	// We only need Y values for CDF plot.
+	vqmY := make([]float64, vqmValues.Len())
+	for i := 0; i < vqmValues.Len(); i++ {
+		_, vqmY[i] = vqmValues.XY(i)
+	}
 	// Create a 2D slice to hold subplots. This is the sad state of gonum's API
 	// at this point unfortunately.
 	const rows, cols = 3, 1
@@ -166,17 +154,17 @@ func MultiPlotVqm(values []float64, metric, title, outFile string) (err error) {
 		plots[i] = make([]*plot.Plot, cols)
 	}
 
-	plots[0][0], err = CreateVqmPlot(values, metric)
+	plots[0][0], err = CreateVqmPlot(vqmValues, metric)
 	if err != nil {
 		return err
 	}
 
-	plots[1][0], err = CreateHistogramPlot(values, metric)
+	plots[1][0], err = CreateHistogramPlot(vqmValues, metric)
 	if err != nil {
 		return err
 	}
 
-	plots[2][0], err = CreateCDFPlot(values, metric)
+	plots[2][0], err = CreateCDFPlot(vqmY, metric)
 	if err != nil {
 		return err
 	}
