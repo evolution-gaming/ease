@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/evolution-gaming/ease/internal/encoding"
@@ -113,16 +114,54 @@ func fileExists(p string) bool {
 	return true
 }
 
-func all[T comparable](s []T, val T) bool {
+func all[T comparable](s []T, f func(val T) bool) bool {
 	if len(s) == 0 {
 		return false
 	}
 
 	for _, e := range s {
-		if e != val {
+		if !f(e) {
 			return false
 		}
 	}
 
 	return true
+}
+
+// parseFraction will parse fraction string representation.
+func parseFraction(x string) (float64, error) {
+	numStr, denomStr, found := strings.Cut(x, "/")
+
+	numerator, err := strconv.Atoi(numStr)
+	if err != nil {
+		return 0, fmt.Errorf("parsing numerator: %w", err)
+	}
+	// In case it is not a fraction - return numerator.
+	if !found {
+		return float64(numerator), nil
+	}
+
+	denominator, err := strconv.Atoi(denomStr)
+	if err != nil {
+		return 0, fmt.Errorf("parsing denominator: %w", err)
+	}
+	if denominator == 0 {
+		return 0, fmt.Errorf("zero division for %s", x)
+	}
+
+	return float64(numerator) / float64(denominator), nil
+}
+
+// Helpers for plotting with gonum, we need to implement plotter.XYer interface.
+type (
+	metricXYs []metricXY
+	metricXY  struct{ X, Y float64 }
+)
+
+func (m metricXYs) Len() int {
+	return len(m)
+}
+
+func (m metricXYs) XY(i int) (float64, float64) {
+	return m[i].X, m[i].Y
 }

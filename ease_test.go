@@ -206,7 +206,7 @@ func TestIntegration_AllSubcommands(t *testing.T) {
 		for _, metric := range []string{"VMAF", "PSNR", "MS-SSIM"} {
 			t.Run(metric, func(t *testing.T) {
 				outFile := path.Join(tempDir, fmt.Sprintf("vqmplot_%s.png", metric))
-				err := CreateVQMPlotCommand().Run([]string{"-i", vqmFile, "-o", outFile, "-m", metric})
+				err := CreateVQMPlotCommand().Run([]string{"-i", vqmFile, "-o", outFile, "-m", metric, "-fps", "24"})
 				assert.NoError(t, err, "Unexpected error running vqmplot")
 				assert.FileExists(t, outFile, "VQM file missing")
 			})

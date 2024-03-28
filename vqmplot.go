@@ -38,6 +38,7 @@ Examples:
 	app.fs.StringVar(&app.flSrcFile, "i", "", "Input libvmaf JSON file (mandatory)")
 	app.fs.StringVar(&app.flOutFile, "o", "", "Output file")
 	app.fs.StringVar(&app.flMetric, "m", "VMAF", fmt.Sprintf("Metric to plot (%s)", supportedMetrics))
+	app.fs.Float64Var(&app.flFPS, "fps", 0, "Source video file FPS")
 
 	app.fs.Usage = func() {
 		printSubCommandUsage(longHelp, app.fs)
@@ -56,6 +57,8 @@ type VQMPlotApp struct {
 	flOutFile string
 	// Selected metric to plot
 	flMetric string
+	// Video file fps
+	flFPS float64
 	// Global flags
 	gf globalFlags
 }
@@ -105,6 +108,14 @@ func (a *VQMPlotApp) Run(args []string) error {
 		}
 	}
 
+	if a.flFPS == 0 {
+		a.fs.Usage()
+		return &AppError{
+			exitCode: 2,
+			msg:      "mandatory option -fps is missing",
+		}
+	}
+
 	logging.Info("Starting...")
 
 	jsonFd, err := os.Open(a.flSrcFile)
@@ -124,19 +135,19 @@ func (a *VQMPlotApp) Run(args []string) error {
 		}
 	}
 
-	var vqms []float64
+	vqms := make(metricXYs, 0, len(frameMetrics))
 	switch a.flMetric {
 	case "VMAF":
 		for _, v := range frameMetrics {
-			vqms = append(vqms, v.VMAF)
+			vqms = append(vqms, metricXY{X: float64(v.FrameNum) / a.flFPS, Y: v.VMAF})
 		}
 	case "PSNR":
 		for _, v := range frameMetrics {
-			vqms = append(vqms, v.PSNR)
+			vqms = append(vqms, metricXY{X: float64(v.FrameNum) / a.flFPS, Y: v.PSNR})
 		}
 	case "MS-SSIM":
 		for _, v := range frameMetrics {
-			vqms = append(vqms, v.MS_SSIM)
+			vqms = append(vqms, metricXY{X: float64(v.FrameNum) / a.flFPS, Y: v.MS_SSIM})
 		}
 	}
 	if len(vqms) == 0 {
