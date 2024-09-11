@@ -29,6 +29,10 @@ linters-settings:
       - empty
       - stdlib
       - generic
+  gosec:
+    excludes:
+      # Controlversial
+      - G115
 
 linters:
   disable-all: true
