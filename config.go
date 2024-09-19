@@ -95,25 +95,25 @@ func (c *Config) OverrideFrom(src Config) {
 //
 // For some configuration options a default value will be specified, for others an
 // auto-detection mechanism will populate option values.
-func loadDefaultConfig() (Config, error) {
+func loadDefaultConfig() Config {
 	var cfg Config
 
 	// For default configuration attempt to locate ffmpeg binary.
 	ffmpeg, err := tools.FfmpegPath()
 	if err != nil {
-		return cfg, fmt.Errorf("DefaultConfig: %w", err)
+		ffmpeg = "not found"
 	}
 
 	// For default configuration attempt to locate ffprobe binary.
 	ffprobe, err := tools.FfprobePath()
 	if err != nil {
-		return cfg, fmt.Errorf("DefaultConfig: %w", err)
+		ffprobe = "not found"
 	}
 
 	// For default configuration attempt to locate VMAF model file.
 	libvmafModel, err := tools.FindLibvmafModel()
 	if err != nil {
-		return cfg, fmt.Errorf("DefaultConfig: %w", err)
+		libvmafModel = "not found"
 	}
 
 	cfg = Config{
@@ -124,7 +124,7 @@ func loadDefaultConfig() (Config, error) {
 		ReportFileName:     NewConfigVal(defaultReportFile),
 	}
 
-	return cfg, nil
+	return cfg
 }
 
 // loadConfigFromFile will load configuration from file.
@@ -144,10 +144,7 @@ func loadConfigFromFile(f string) (cfg Config, err error) {
 // function to use for config loading. Configuration file is optional e.g. can be "".
 func LoadConfig(configFile string) (cfg Config, err error) {
 	// Initialize default configuration.
-	cfg, err = loadDefaultConfig()
-	if err != nil {
-		return cfg, err
-	}
+	cfg = loadDefaultConfig()
 
 	// Load configuration from file and override default configuration options.
 	if configFile != "" {

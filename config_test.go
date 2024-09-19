@@ -17,9 +17,7 @@ import (
 )
 
 func Test_loadDefaultConfig(t *testing.T) {
-	c, err := loadDefaultConfig()
-	assert.NoError(t, err, "Should create DefaultConfig without errors")
-
+	c := loadDefaultConfig()
 	assert.NoError(t, c.Verify(), "DefaultConfig should be valid")
 }
 
@@ -27,8 +25,8 @@ func Test_loadDefaultConfig_Negative(t *testing.T) {
 	// Messing up PATH should result in failure detecting ffmpeg and ffprobe which
 	// should result in error from calling DefaultConfig().
 	t.Setenv("PATH", "")
-	_, err := loadDefaultConfig()
-	assert.ErrorContains(t, err, "DefaultConfig: ")
+	c := loadDefaultConfig()
+	assert.Error(t, c.Verify())
 }
 
 func Test_loadConfigFile(t *testing.T) {
@@ -153,7 +151,6 @@ func Test_Config_OverrideFrom(t *testing.T) {
 }
 
 func Test_DumpConfApp_Run(t *testing.T) {
-	commandOutput := &bytes.Buffer{}
 	// This is one option we try to make sure is in dumped config file.
 	want := `"report_file_name": "test_report.json"`
 
@@ -166,10 +163,28 @@ func Test_DumpConfApp_Run(t *testing.T) {
 	cmd := CreateDumpConfCommand()
 
 	// Redirect output to buffer
+	commandOutput := &bytes.Buffer{}
 	cmd.out = commandOutput
 
 	err := cmd.Run([]string{"-conf", confFile})
 	assert.NoError(t, err, "Unexpected error running encode")
 	// Check that config dump contains options we specified in config file.
 	assert.Contains(t, commandOutput.String(), want)
+}
+
+func Test_DumpConfApp_Run_WithNotFound(t *testing.T) {
+	// This will make ffmpeg and ffprobe auto-detect to fail.
+	t.Setenv("PATH", "")
+
+	// Run command will generate encoding artifacts and analysis artifacts.
+	cmd := CreateDumpConfCommand()
+
+	// Redirect output to buffer
+	commandOutput := &bytes.Buffer{}
+	cmd.out = commandOutput
+
+	err := cmd.Run([]string{})
+	assert.Contains(t, commandOutput.String(), `"ffmpeg_path": "not found"`)
+	assert.Contains(t, commandOutput.String(), `"ffprobe_path": "not found"`)
+	assert.ErrorContains(t, err, "configuration validation")
 }
