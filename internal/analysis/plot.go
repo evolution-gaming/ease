@@ -220,6 +220,9 @@ func CreateBitratePlot(frameStats []FrameStat) (*plot.Plot, error) {
 	var totSize uint64
 	var curSecond uint64
 
+	// TODO This is slightly specialised version of what FrameStats.ToBitrate() does. In
+	// future may consider to generalize.
+
 	// Bucket count should be same as video duration in seconds.
 	bSize := uint64(math.Floor(videoDuration)) + 1
 	// Create buckets for all types of interesting frames.
@@ -628,8 +631,7 @@ func (ff FrameStats) ToBitrate() ([]float64, error) {
 	}
 	// Bucket count should be same as video duration in seconds.
 	bSize := uint64(math.Floor(videoDuration)) + 1
-	// Create buckets for all types of interesting frames.
-	allFrameBuckets := make([]float64, bSize)
+	buckets := make([]float64, bSize)
 
 	var totSize uint64
 	var curSecond uint64
@@ -642,10 +644,10 @@ func (ff FrameStats) ToBitrate() ([]float64, error) {
 		curSecond = uint64(math.Floor(p.PtsTime - minPts))
 		// Convert frame size to Kbits.
 		s := float64(p.Size*8) / 1000
-		allFrameBuckets[curSecond] += s
+		buckets[curSecond] += s
 	}
 
-	return allFrameBuckets, nil
+	return buckets, nil
 }
 
 // packetStat is struct with per-packet meta-data as provided by ffprobe.
