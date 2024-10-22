@@ -14,6 +14,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/evolution-gaming/ease/internal/analysis"
@@ -23,6 +24,7 @@ import (
 	"github.com/evolution-gaming/ease/internal/tools"
 	"github.com/evolution-gaming/ease/internal/vqm"
 	"github.com/jszwec/csvutil"
+	"gonum.org/v1/gonum/stat"
 )
 
 // CreateRunCommand will create instance of App.
@@ -175,24 +177,36 @@ func (a *App) encode(plan encoding.Plan) error {
 			ResultFile:         resFile,
 		}
 
-		vqmTool, err2 := vqm.NewFfmpegVMAF(&vmafCfg, record.CompressedFile, record.SourceFile)
-		if err2 != nil {
+		vqmTool, err := vqm.NewFfmpegVMAF(&vmafCfg, record.CompressedFile, record.SourceFile)
+		if err != nil {
 			vqmFailed = true
-			logging.Infof("Error while initializing VQM tool: %s", err2)
+			logging.Infof("Error while initializing VQM tool: %s", err)
 			continue
 		}
 
 		logging.Infof("Start measuring VQMs for %s", record.CompressedFile)
-		if err2 = vqmTool.Measure(); err2 != nil {
+		if err = vqmTool.Measure(); err != nil {
 			vqmFailed = true
-			logging.Infof("Failed calculate VQM for %s due to error: %s", record.CompressedFile, err2)
+			logging.Infof("Failed to calculate VQM for %s due to error: %s", record.CompressedFile, err)
 			continue
 		}
 
-		res, err2 := vqmTool.GetMetrics()
-		if err2 != nil {
+		res, err := vqmTool.GetMetrics()
+		if err != nil {
 			vqmFailed = true
-			logging.Infof("Error while getting metrics for %s: %s", record.CompressedFile, err2)
+			logging.Infof("Error while getting metrics for %s: %s", record.CompressedFile, err)
+			continue
+		}
+
+		fs, err := analysis.GetFrameStats(record.CompressedFile, a.cfg.FfprobePath.Value())
+		if err != nil {
+			logging.Infof("Error while getting per-frame stats for %s: %s", record.CompressedFile, err)
+			continue
+		}
+
+		brate, err := fs.ToBitrate()
+		if err != nil {
+			logging.Infof("Error while getting bitrate for %s: %s", record.CompressedFile, err)
 			continue
 		}
 
@@ -219,9 +233,13 @@ func (a *App) encode(plan encoding.Plan) error {
 		record.MS_SSIMStDev = res.MS_SSIM.StDev
 		record.MS_SSIMVariance = res.MS_SSIM.Variance
 
+		record.BitrateMax = slices.Max(brate)
+		record.BitrateMin = slices.Min(brate)
+		record.BitrateMean = stat.Mean(brate, nil)
+
 		if err := a.mStore.Update(id, record); err != nil {
 			vqmFailed = true
-			logging.Infof("Error updating record (id=%v) for %s: %s", id, record.CompressedFile, err2)
+			logging.Infof("Error updating record (id=%v) for %s: %s", id, record.CompressedFile, err)
 			continue
 		}
 		logging.Debugf("Updating record (id=%v) with VQ metrics", id)

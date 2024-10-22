@@ -551,7 +551,7 @@ func getDuration(fs []FrameStat) float64 {
 }
 
 // GetFrameStats gets per-frame stats using ffprobe.
-func GetFrameStats(videoFile, ffprobePath string) ([]FrameStat, error) {
+func GetFrameStats(videoFile, ffprobePath string) (FrameStats, error) {
 	// Although we are querying packets statistics e.g. `AVPacket` from PoV libav, still
 	// for video stream it should map directly to a video frame.
 	ffprobeArgs := []string{
@@ -614,6 +614,38 @@ func (f *FrameStat) UnmarshalJSON(data []byte) error {
 	f.Size = ps.Size
 
 	return nil
+}
+
+// FrameStats is an alias to implement convenient methods on underlying slice type.
+type FrameStats []FrameStat
+
+// ToBitrate calculates 1s bitrate buckets from given FrameStats.
+func (ff FrameStats) ToBitrate() ([]float64, error) {
+	videoDuration := getDuration(ff)
+
+	if videoDuration <= 0 {
+		return nil, fmt.Errorf("unexpected video duration: %v", videoDuration)
+	}
+	// Bucket count should be same as video duration in seconds.
+	bSize := uint64(math.Floor(videoDuration)) + 1
+	// Create buckets for all types of interesting frames.
+	allFrameBuckets := make([]float64, bSize)
+
+	var totSize uint64
+	var curSecond uint64
+
+	// Aggregate frame sizes into 1 second buckets.
+	minPts := ff[0].PtsTime
+	for _, p := range ff {
+		totSize += p.Size
+		// Use normalized time e.g. deal with negative PTS.
+		curSecond = uint64(math.Floor(p.PtsTime - minPts))
+		// Convert frame size to Kbits.
+		s := float64(p.Size*8) / 1000
+		allFrameBuckets[curSecond] += s
+	}
+
+	return allFrameBuckets, nil
 }
 
 // packetStat is struct with per-packet meta-data as provided by ffprobe.
