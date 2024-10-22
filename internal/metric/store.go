@@ -94,7 +94,7 @@ func (s *Store) Delete(id ID) error {
 	return nil
 }
 
-// Need to create a huge record.
+// Record contains metrics for a single encode.
 type Record struct {
 	Name             string
 	SourceFile       string
@@ -131,4 +131,8 @@ type Record struct {
 	VMAFHarmonicMean float64
 	VMAFStDev        float64
 	VMAFVariance     float64
+
+	BitrateMin  float64
+	BitrateMax  float64
+	BitrateMean float64
 }
