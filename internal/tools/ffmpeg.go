@@ -60,7 +60,9 @@ func FfprobeExtractMetadata(videoFile string) (video.Metadata, error) {
 
 	ffprobeArgs := []string{
 		"-v", "quiet",
+		"-threads", "0",
 		"-select_streams", "v",
+		"-count_frames",
 		"-of", "json",
 		"-show_format",
 		"-show_streams",
@@ -85,7 +87,7 @@ func FfprobeExtractMetadata(videoFile string) (video.Metadata, error) {
 		Width      int     `json:"width,omitempty"`
 		Height     int     `json:"height,omitempty"`
 		BitRate    int     `json:"bit_rate,omitempty,string"`
-		FrameCount int     `json:"nb_frames,omitempty,string"`
+		FrameCount int     `json:"nb_read_frames,omitempty,string"`
 	}
 	// Unmarshal metadata from both "streams" and "format" JSON objects.
 	meta := &struct {
@@ -95,11 +97,11 @@ func FfprobeExtractMetadata(videoFile string) (video.Metadata, error) {
 	if err := json.Unmarshal(out, &meta); err != nil {
 		return vmeta, fmt.Errorf("FfprobeExtractMetadata() json.Unmarshal: %w", err)
 	}
-	logging.Debugf("%s %+v", videoFile, meta)
 
 	vmeta = video.Metadata(meta.Streams[0])
 	// For mkv container Streams does not contain duration, so we have to look into Format.
 	vmeta.Duration = math.Max(vmeta.Duration, meta.Format.Duration)
+	logging.Debugf("%s %+v", videoFile, vmeta)
 
 	return vmeta, nil
 }
