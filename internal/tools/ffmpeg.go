@@ -6,9 +6,9 @@
 package tools
 
 import (
+	"cmp"
 	"encoding/json"
 	"fmt"
-	"math"
 	"os"
 	"os/exec"
 	"path"
@@ -99,8 +99,10 @@ func FfprobeExtractMetadata(videoFile string) (video.Metadata, error) {
 	}
 
 	vmeta = video.Metadata(meta.Streams[0])
-	// For mkv container Streams does not contain duration, so we have to look into Format.
-	vmeta.Duration = math.Max(vmeta.Duration, meta.Format.Duration)
+	// For mkv, ivf containers Streams do not contain duration and bitrate, set it from
+	// section Format as fallback.
+	vmeta.Duration = cmp.Or(vmeta.Duration, meta.Format.Duration)
+	vmeta.BitRate = cmp.Or(vmeta.BitRate, meta.Format.BitRate)
 	logging.Debugf("%s %+v", videoFile, vmeta)
 
 	return vmeta, nil

@@ -82,22 +82,81 @@ func Test_Path_Negative(t *testing.T) {
 }
 
 func Test_FfprobeExtractMetadata(t *testing.T) {
-	videoFile := "../../testdata/video/testsrc02.mp4"
-	t.Run("Should extract VideoMetadata from video file", func(t *testing.T) {
-		want := video.Metadata{
-			Duration:   10,
-			Width:      1280,
-			Height:     720,
-			BitRate:    86740,
-			FrameCount: 240,
-			CodecName:  "h264",
-			FrameRate:  "24/1",
-		}
+	type testCase struct {
+		videoFile    string
+		wantMetadata video.Metadata
+	}
 
-		got, err := FfprobeExtractMetadata(videoFile)
-		assert.NoError(t, err)
-		assert.Equal(t, want, got)
-	})
+	tests := map[string]testCase{
+		"h264 mp4 small": {
+			videoFile: "../../testdata/video/testsrc01.mp4",
+			wantMetadata: video.Metadata{
+				Duration:   1,
+				Width:      320,
+				Height:     240,
+				BitRate:    56112,
+				FrameCount: 10,
+				CodecName:  "h264",
+				FrameRate:  "10/1",
+			},
+		},
+		"h264 mp4 large": {
+			videoFile: "../../testdata/video/testsrc02.mp4",
+			wantMetadata: video.Metadata{
+				Duration:   10,
+				Width:      1280,
+				Height:     720,
+				BitRate:    86740,
+				FrameCount: 240,
+				CodecName:  "h264",
+				FrameRate:  "24/1",
+			},
+		},
+		"av1 ivf": {
+			videoFile: "../../testdata/video/testsrc03.ivf",
+			wantMetadata: video.Metadata{
+				Duration:   1,
+				Width:      1920,
+				Height:     1080,
+				BitRate:    114648,
+				FrameCount: 24,
+				CodecName:  "av1",
+				FrameRate:  "24/1",
+			},
+		},
+		"av1 mp4": {
+			videoFile: "../../testdata/video/testsrc04.mp4",
+			wantMetadata: video.Metadata{
+				Duration:   1,
+				Width:      1920,
+				Height:     1080,
+				BitRate:    111704,
+				FrameCount: 24,
+				CodecName:  "av1",
+				FrameRate:  "24/1",
+			},
+		},
+		"h264 mkv": {
+			videoFile: "../../testdata/video/testsrc05.mkv",
+			wantMetadata: video.Metadata{
+				Duration:   1,
+				Width:      320,
+				Height:     240,
+				BitRate:    62648,
+				FrameCount: 10,
+				CodecName:  "h264",
+				FrameRate:  "10/1",
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			gotMetadata, err := FfprobeExtractMetadata(tc.videoFile)
+			assert.NoError(t, err)
+			assert.Equal(t, tc.wantMetadata, gotMetadata)
+		})
+	}
 }
 
 func Test_FfprobeExtractMetadata_Negative(t *testing.T) {
