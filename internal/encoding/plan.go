@@ -21,6 +21,7 @@ import (
 
 	"github.com/evolution-gaming/ease/internal/logging"
 	"github.com/evolution-gaming/ease/internal/lw"
+	"github.com/evolution-gaming/ease/internal/metric"
 	"github.com/evolution-gaming/ease/internal/tools"
 )
 
@@ -93,7 +94,7 @@ func (s *EncoderCmd) Run() RunResult {
 		logging.Debugf("Stderr: %s", buf.Bytes())
 		r.AddError(err)
 	}
-	r.Stats = NewUsageStat(time.Since(start), r.Rusage())
+	r.Stats = metric.NewUsageStat(time.Since(start), r.Rusage())
 	// Add VideoDuration and also calculate approximation to average encoding speed.
 	vmeta, err := tools.FfprobeExtractMetadata(r.CompressedFile)
 	if err != nil {
@@ -283,7 +284,7 @@ type RunResult struct {
 	Errors           []error
 	cmd              *exec.Cmd
 	stderr           []byte
-	Stats            UsageStat
+	Stats            metric.UsageStat
 	VideoDuration    float64
 	AvgEncodingSpeed float64
 }
@@ -308,38 +309,6 @@ func (s *RunResult) Rusage() *syscall.Rusage {
 
 func (s *RunResult) AddError(e error) {
 	s.Errors = append(s.Errors, e)
-}
-
-// UsageStat contains process resource usage stats.
-type UsageStat struct {
-	// Human friendly representations of time duration
-	HStime   string
-	HUtime   string
-	HElapsed string
-	// time.Duration is nanoseconds
-	Stime   time.Duration
-	Utime   time.Duration
-	Elapsed time.Duration
-	// MaxRss is KB
-	MaxRss int64
-}
-
-// NewUsageStat will create UsageStat instance.
-func NewUsageStat(elapsed time.Duration, rusage *syscall.Rusage) UsageStat {
-	return UsageStat{
-		Stime:    time.Duration(syscall.TimevalToNsec(rusage.Stime)),
-		Utime:    time.Duration(syscall.TimevalToNsec(rusage.Utime)),
-		Elapsed:  elapsed,
-		HStime:   time.Duration(syscall.TimevalToNsec(rusage.Stime)).String(),
-		HUtime:   time.Duration(syscall.TimevalToNsec(rusage.Utime)).String(),
-		HElapsed: elapsed.String(),
-		MaxRss:   rusage.Maxrss,
-	}
-}
-
-// CPUPercent calculates CPU usage in percent.
-func (s *UsageStat) CPUPercent() float64 {
-	return float64(s.Stime+s.Utime) / float64(s.Elapsed) * 100
 }
 
 // generateOutputFileNameBase will generate a sensible output filename without extension.

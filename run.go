@@ -197,6 +197,7 @@ func (a *App) encode(plan encoding.Plan) error {
 			logging.Infof("Error while getting metrics for %s: %s", record.CompressedFile, err)
 			continue
 		}
+		vqmUsageStat := vqmTool.UsageStat()
 
 		fs, err := analysis.GetFrameStats(record.CompressedFile, a.cfg.FfprobePath.Value())
 		if err != nil {
@@ -212,6 +213,10 @@ func (a *App) encode(plan encoding.Plan) error {
 
 		// Update record with VQ metrics.
 		record.VQMResultFile = resFile
+		record.VQMStime = vqmUsageStat.Stime
+		record.VQMUtime = vqmUsageStat.Utime
+		record.VQMElapsed = vqmUsageStat.Elapsed
+
 		record.PSNRMin = res.PSNR.Min
 		record.PSNRMax = res.PSNR.Max
 		record.PSNRMean = res.PSNR.Mean
