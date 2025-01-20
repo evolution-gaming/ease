@@ -15,9 +15,12 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"syscall"
 	"text/template"
+	"time"
 
 	"github.com/evolution-gaming/ease/internal/logging"
+	"github.com/evolution-gaming/ease/internal/metric"
 	"github.com/evolution-gaming/ease/internal/tools"
 	"github.com/google/shlex"
 	"gonum.org/v1/gonum/floats"
@@ -101,6 +104,7 @@ type FfmpegVMAF struct {
 	resultFile string
 	output     []byte
 	measured   bool
+	usageStat  metric.UsageStat
 }
 
 func (f *FfmpegVMAF) Measure() error {
@@ -124,6 +128,7 @@ func (f *FfmpegVMAF) Measure() error {
 		return fmt.Errorf("frame count mismatch: source %v != compressed %v", srcMeta.FrameCount, compressedMeta.FrameCount)
 	}
 
+	tStart := time.Now()
 	cmd := exec.Command(f.exePath, f.ffmpegArgs...) //#nosec G204
 	logging.Debugf("VQM tool command: %v", cmd.Args)
 	f.output, err = cmd.CombinedOutput()
@@ -132,9 +137,21 @@ func (f *FfmpegVMAF) Measure() error {
 		logging.Infof("VQM tool output:\n%s", f.output)
 		return fmt.Errorf("VQM calculation error: %w", err)
 	}
+	tDelta := time.Since(tStart)
 
+	rusage, ok := cmd.ProcessState.SysUsage().(*syscall.Rusage)
+	if !ok {
+		return errors.New("getting VQM calculation rusage")
+	}
+
+	f.usageStat = metric.NewUsageStat(tDelta, rusage)
 	f.measured = true
+
 	return nil
+}
+
+func (f *FfmpegVMAF) UsageStat() metric.UsageStat {
+	return f.usageStat
 }
 
 type AggregateMetric struct {
@@ -211,21 +228,21 @@ type ffmpegVMAFResult struct {
 }
 
 type frame struct {
-	FrameNum uint   `json:"frameNum"`
-	Metrics  metric `json:"metrics"`
+	FrameNum uint        `json:"frameNum"`
+	Metrics  frameMetric `json:"metrics"`
 }
 
-type metric struct {
+type frameMetric struct {
 	VMAF    float64
 	PSNR    float64
 	MS_SSIM float64
 }
 
-// UnmarshalJSON implements json.Unmarshaler interface for metric.
+// UnmarshalJSON implements json.Unmarshaler interface for frameMetric.
 //
 // A custom unmarshaler is needed to work around lack of stability around libvmaf measured
 // VQ metric field names in output.
-func (m *metric) UnmarshalJSON(b []byte) error {
+func (m *frameMetric) UnmarshalJSON(b []byte) error {
 	// Ignore "null" as per convention.
 	if string(b) == "null" {
 		return nil

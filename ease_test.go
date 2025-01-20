@@ -121,9 +121,13 @@ func Test_RunApp_Run_WithFailedVQM(t *testing.T) {
 	wantErrMsg := "VQM calculations had errors, see log for reasons"
 	wantExitCode := 1
 	gotErr := app.Run([]string{"-plan", plan, "-out-dir", outDir})
+	assert.NotNil(t, gotErr)
 	assert.ErrorContains(t, gotErr, wantErrMsg)
 
-	gotExitCode := gotErr.(*AppError).ExitCode()
+	var appErr *AppError
+	assert.ErrorAs(t, gotErr, &appErr)
+
+	gotExitCode := appErr.ExitCode()
 	assert.Equal(t, wantExitCode, gotExitCode, "Exit code mismatch")
 }
 
@@ -135,7 +139,10 @@ func Test_RunApp_Run_WithInvalidPlanConfigParseError(t *testing.T) {
 	gotErr := app.Run([]string{"-plan", fixPlanConfigInvalid(t), "-out-dir", t.TempDir()})
 	assert.ErrorContains(t, gotErr, wantErrMsg)
 
-	gotExitCode := gotErr.(*AppError).ExitCode()
+	var appErr *AppError
+	assert.ErrorAs(t, gotErr, &appErr)
+
+	gotExitCode := appErr.ExitCode()
 	assert.Equal(t, wantExitCode, gotExitCode, "Exit code mismatch")
 }
 
@@ -155,8 +162,11 @@ func Test_RunApp_Run_WithNonEmptyOutDirShouldTerminate(t *testing.T) {
 	wantErrMsg := "non-empty out dir"
 	assert.ErrorContains(t, gotErr, wantErrMsg)
 
+	var appErr *AppError
+	assert.ErrorAs(t, gotErr, &appErr)
+
 	wantExitCode := 1
-	gotExitCode := gotErr.(*AppError).ExitCode()
+	gotExitCode := appErr.ExitCode()
 	assert.Equal(t, wantExitCode, gotExitCode, "Exit code mismatch")
 }
 

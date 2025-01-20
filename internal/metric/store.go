@@ -107,6 +107,9 @@ type Record struct {
 	Stime            time.Duration
 	Utime            time.Duration
 	Elapsed          time.Duration
+	VQMStime         time.Duration
+	VQMUtime         time.Duration
+	VQMElapsed       time.Duration
 	MaxRss           int64
 	VideoDuration    float64
 	AvgEncodingSpeed float64
