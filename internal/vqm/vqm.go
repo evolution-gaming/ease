@@ -45,11 +45,7 @@ func NewFfmpegVMAF(cfg *FfmpegVMAFConfig, compressedFile, sourceFile string) (*F
 
 	// Too much CPU threads are also bad. This was an issue on 128 threaded AMD
 	// EPYC, ffmpeg was deadlocking at some point during VMAF calculations.
-	nThreads := 32
-
-	if runtime.NumCPU() < nThreads {
-		nThreads = runtime.NumCPU()
-	}
+	nThreads := min(runtime.NumCPU(), 32)
 
 	// Template requires a struct with exported fields.
 	tplContext := struct {
