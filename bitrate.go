@@ -147,8 +147,8 @@ func run(videoFile, plotFile, ffprobePath string) error {
 	}
 
 	canvases := plot.Align(plots, t, dc)
-	for j := 0; j < rows; j++ {
-		for i := 0; i < cols; i++ {
+	for j := range rows {
+		for i := range cols {
 			if plots[j][i] != nil {
 				plots[j][i].Draw(canvases[j][i])
 			}
