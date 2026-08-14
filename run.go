@@ -158,7 +158,7 @@ func (a *App) encode(plan encoding.Plan) error {
 	}
 
 	// Do VQM calculations for encoded videos.
-	var vqmFailed bool = false
+	vqmFailed := false
 	for _, id := range a.mStore.GetIDs() {
 		record, err := a.mStore.Get(id)
 		if err != nil {

@@ -43,7 +43,8 @@ func TestLimitedWriterProp(t *testing.T) {
 			if err := quick.Check(fn, qCfg); err != nil {
 				t.Error(err)
 			}
-		})
+		},
+	)
 	t.Run(
 		"Multiple writes to large enough buffer",
 		func(t *testing.T) {
@@ -57,7 +58,7 @@ func TestLimitedWriterProp(t *testing.T) {
 				w, buf := writerFixture(size)
 				for i, fill := c, buf.Len(); i > 0; i-- {
 					n, err := w.Write(b)
-					if err != nil || n == 0 || !(buf.Len() > fill) {
+					if err != nil || n == 0 || (buf.Len() <= fill) {
 						return false
 					}
 				}
@@ -66,7 +67,8 @@ func TestLimitedWriterProp(t *testing.T) {
 			if err := quick.Check(fn, qCfg); err != nil {
 				t.Error(err)
 			}
-		})
+		},
+	)
 
 	t.Run(
 		"Buffer overflow should return error",
@@ -85,7 +87,8 @@ func TestLimitedWriterProp(t *testing.T) {
 			if err := quick.Check(fn, qCfg); err != nil {
 				t.Error(err)
 			}
-		})
+		},
+	)
 
 	t.Run(
 		"Multiple writes with buffer overflow",
@@ -114,5 +117,6 @@ func TestLimitedWriterProp(t *testing.T) {
 			if err := quick.Check(fn, qCfg); err != nil {
 				t.Error(err)
 			}
-		})
+		},
+	)
 }

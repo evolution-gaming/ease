@@ -258,16 +258,16 @@ func (s *Plan) Run() (PlanResult, error) {
 }
 
 // ensureOutDir will create output directory if it does not exist.
-func (p *Plan) ensureOutDir() error {
-	if p.outDirCreated {
+func (s *Plan) ensureOutDir() error {
+	if s.outDirCreated {
 		return nil
 	}
-	logging.Debugf("Creating output directory: %s", p.OutDir)
-	err := os.MkdirAll(p.OutDir, os.FileMode(0o775))
+	logging.Debugf("Creating output directory: %s", s.OutDir)
+	err := os.MkdirAll(s.OutDir, os.FileMode(0o775))
 	if err != nil {
 		return fmt.Errorf("ensureOutDir(): %w", err)
 	}
-	p.outDirCreated = true
+	s.outDirCreated = true
 	return nil
 }
 

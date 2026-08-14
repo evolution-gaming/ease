@@ -90,7 +90,7 @@ func fixPlanConfigMisalignedFrames(t *testing.T) (fPath string) {
 	if err != nil {
 		t.Fatalf("ffmpeg not found: %v", err)
 	}
-	payload := []byte(fmt.Sprintf(`{
+	payload := fmt.Appendf(nil, `{
 		"Inputs": [
 			"testdata/video/testsrc01.mp4"
 		],
@@ -100,7 +100,7 @@ func fixPlanConfigMisalignedFrames(t *testing.T) (fPath string) {
 				"CommandTpl": ["%s -i %%INPUT%% -vf \"trim=start_frame=1\" %%OUTPUT%%.mp4"]
 			}
 		]
-	}`, ffmpegPath))
+	}`, ffmpegPath)
 
 	fPath = path.Join(t.TempDir(), "misaligned_plan.json")
 	err = os.WriteFile(fPath, payload, fs.FileMode(0o644))
