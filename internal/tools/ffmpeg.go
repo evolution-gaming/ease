@@ -55,10 +55,11 @@ func FfprobePath() (string, error) {
 func FfprobeExtractMetadata(videoFile string) (video.Metadata, error) {
 	var vmeta video.Metadata
 
-	videoFile = filepath.Clean(videoFile)
 	if videoFile == "" {
 		return vmeta, fmt.Errorf("FfprobeExtractMetadata() video file path cannot be empty")
 	}
+
+	videoFile = filepath.Clean(videoFile)
 
 	// #nosec G703 - we trust the user videoFile is safe.
 	if _, err := os.Stat(videoFile); os.IsNotExist(err) {

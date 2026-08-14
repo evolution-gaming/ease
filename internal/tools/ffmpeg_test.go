@@ -160,17 +160,33 @@ func Test_FfprobeExtractMetadata(t *testing.T) {
 }
 
 func Test_FfprobeExtractMetadata_Negative(t *testing.T) {
-	t.Run("Should fail for non-existent media file", func(t *testing.T) {
-		_, err := FfprobeExtractMetadata("/non/existent/path/to/file")
-		assert.Error(t, err)
-	})
-	t.Run("Should fail extracting metadata from non-media file", func(t *testing.T) {
-		// Try to extract metadata from non video file, just some binary like for instance
-		// a test binary.
-		nonMediaFile := os.Args[0]
-		_, err := FfprobeExtractMetadata(nonMediaFile)
-		assert.Error(t, err)
-	})
+	type testCase struct {
+		badVideoFile  string
+		wantErrString string
+	}
+
+	tests := map[string]testCase{
+		"non-existent media file": {
+			badVideoFile:  "/non/existent/path/to/file",
+			wantErrString: "no such file or directory",
+		},
+		"non-media file": {
+			badVideoFile:  os.Args[0], // this is a binary file
+			wantErrString: "exec error",
+		},
+		"no media file": {
+			badVideoFile:  "",
+			wantErrString: "video file path cannot be empty",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			gotMetadata, err := FfprobeExtractMetadata(tc.badVideoFile)
+			assert.ErrorContains(t, err, tc.wantErrString)
+			assert.Equal(t, gotMetadata, video.Metadata{})
+		})
+	}
 }
 
 func Test_FindLibvmafModel(t *testing.T) {
