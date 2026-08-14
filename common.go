@@ -51,7 +51,7 @@ func unrollResultErrors(results []encoding.RunResult) string {
 		rr := &results[i]
 		if len(rr.Errors) != 0 {
 			for _, e := range rr.Errors {
-				sb.WriteString(fmt.Sprintf("%s:\n\t%s\n", rr.Name, e.Error()))
+				fmt.Fprintf(&sb, "%s:\n\t%s\n", rr.Name, e.Error())
 			}
 		}
 	}
@@ -81,7 +81,8 @@ func createPlanConfig(cfgFile string) (pc encoding.PlanConfig, err error) {
 		if errors.As(err, &ev) {
 			logging.Debugf(
 				"PlanConfig validation failures:\n%s",
-				strings.Join(ev.Reasons(), "\n"))
+				strings.Join(ev.Reasons(), "\n"),
+			)
 		}
 		return pc, fmt.Errorf("PlanConfig not valid: %w", err)
 	}

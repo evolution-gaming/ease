@@ -33,7 +33,7 @@ var (
 	defaultPlotHeight = vg.Centimeter * 7
 )
 
-// A custom color palette: color1 as base color and color2 as a darker variant.
+// ColorPalette - custom color palette: color1 as base color and color2 as a darker variant.
 var ColorPalette = []color.RGBA{
 	// red1
 	{R: 230, G: 57, B: 70, A: 255},
@@ -102,7 +102,7 @@ func CreateHistogramPlot(metric plotter.XYer, name string) (*plot.Plot, error) {
 	p.Y.Label.Text = "N"
 
 	// A number of bins to use for histogram.
-	var bins int = 100
+	bins := 100
 
 	pHist, err := plotter.NewHist(plotter.YValues{XYer: metric}, bins)
 	if err != nil {
@@ -501,8 +501,8 @@ func createQuantileLines(p *plot.Plot, values []float64, quantiles ...float64) [
 	for i, q := range quantiles {
 		qVal := stat.Quantile(q, stat.Empirical, values, nil)
 		qLine := verticalLine(qVal, p.Y.Min, p.Y.Max)
-		qLine.LineStyle.Width = vg.Points(1)
-		qLine.LineStyle.Dashes = []vg.Length{vg.Points(5), vg.Points(5)}
+		qLine.Width = vg.Points(1)
+		qLine.Dashes = []vg.Length{vg.Points(5), vg.Points(5)}
 		// Safe index with step=2 into ColorPalette with wrap-around to avoid
 		// panic in case of bounds check fails.
 		qLine.Color = ColorPalette[i*5%colorCount]

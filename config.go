@@ -28,11 +28,11 @@ var (
 
 // Config represent application configuration.
 type Config struct {
-	FfmpegPath         ConfigVal[string] `json:"ffmpeg_path,omitempty"`
-	FfprobePath        ConfigVal[string] `json:"ffprobe_path,omitempty"`
-	LibvmafModelPath   ConfigVal[string] `json:"libvmaf_model_path,omitempty"`
-	FfmpegVMAFTemplate ConfigVal[string] `json:"ffmpeg_vmaf_template,omitempty"`
-	ReportFileName     ConfigVal[string] `json:"report_file_name,omitempty"`
+	FfmpegPath         ConfigVal[string] `json:"ffmpeg_path"`
+	FfprobePath        ConfigVal[string] `json:"ffprobe_path"`
+	LibvmafModelPath   ConfigVal[string] `json:"libvmaf_model_path"`
+	FfmpegVMAFTemplate ConfigVal[string] `json:"ffmpeg_vmaf_template"`
+	ReportFileName     ConfigVal[string] `json:"report_file_name"`
 }
 
 // Verify will check that configuration is valid.

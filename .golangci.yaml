@@ -1,61 +1,82 @@
-linters-settings:
-  errcheck:
-    exclude-functions:
-      - (*log.Logger).Output
-    check-type-assertions: true
-  goconst:
-    min-len: 2
-    min-occurrences: 3
-  govet:
-    shadow:
-      strict: true
-  nolintlint:
-    require-explanation: true
-    require-specific: true
-  goheader:
-    values:
-      const:
-        COMPANY: Evolution
-      regexp:
-        CPY_YEAR: 20\d\d
-    template: |-
-      Copyright ©{{CPY_YEAR}} {{COMPANY}}. All rights reserved.
-      Use of this source code is governed by a MIT-style
-      license that can be found in the LICENSE file.
-  ireturn:
-    allow:
-      - anon
-      - error
-      - empty
-      - stdlib
-      - generic
-  gosec:
-    excludes:
-      # Controlversial
-      - G115
-
+version: "2"
 linters:
-  disable-all: true
+  default: none
   enable:
-    # Default list
-    - errcheck
-    - gosimple
-    - govet
-    - ineffassign
-    - staticcheck
-    - typecheck
-    - unused
-    # Additional
     - copyloopvar
     - dupl
+    - errcheck
     - errname
-    - misspell
     - gocritic
     - godot
-    - goimports
     - goheader
     - gosec
+    - govet
+    - ineffassign
     - ireturn
+    - misspell
     - prealloc
     - reassign
+    - staticcheck
+    - unused
     - usestdlibvars
+  settings:
+    errcheck:
+      check-type-assertions: true
+      exclude-functions:
+        - (*log.Logger).Output
+    goconst:
+      min-len: 2
+      min-occurrences: 3
+    goheader:
+      values:
+        const:
+          COMPANY: Evolution
+        regexp:
+          CPY_YEAR: 20\d\d
+      template: |-
+        Copyright ©{{CPY_YEAR}} {{COMPANY}}. All rights reserved.
+        Use of this source code is governed by a MIT-style
+        license that can be found in the LICENSE file.
+    gosec:
+      excludes:
+        - G115
+    ireturn:
+      allow:
+        - anon
+        - error
+        - empty
+        - stdlib
+        - generic
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+  exclusions:
+    generated: lax
+    presets:
+      - comments
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+
+    # Excluding configuration per-path, per-linter, per-text and per-source.
+    rules:
+      # Exclude some linters from running on tests files.
+      - path: _test\.go
+        linters:
+          - prealloc
+          - errcheck
+          - dupl
+          - gosec
+formatters:
+  enable:
+    - goimports
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$

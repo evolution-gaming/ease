@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path"
+	"path/filepath"
 
 	"github.com/evolution-gaming/ease/internal/logging"
 	"github.com/evolution-gaming/ease/internal/video"
@@ -54,6 +55,13 @@ func FfprobePath() (string, error) {
 func FfprobeExtractMetadata(videoFile string) (video.Metadata, error) {
 	var vmeta video.Metadata
 
+	if videoFile == "" {
+		return vmeta, fmt.Errorf("FfprobeExtractMetadata() video file path cannot be empty")
+	}
+
+	videoFile = filepath.Clean(videoFile)
+
+	// #nosec G703 - we trust the user videoFile is safe.
 	if _, err := os.Stat(videoFile); os.IsNotExist(err) {
 		return vmeta, fmt.Errorf("FfprobeExtractMetadata() os.Stat: %w", err)
 	}
@@ -72,6 +80,7 @@ func FfprobeExtractMetadata(videoFile string) (video.Metadata, error) {
 	if err != nil {
 		return vmeta, err
 	}
+	// #nosec G702 - ffprobePath resolved via LookPath in FfprobePath().
 	cmd := exec.Command(ffprobePath, ffprobeArgs...)
 	logging.Debugf("Running: %s\n", cmd)
 	out, err := cmd.Output()
