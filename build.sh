@@ -127,9 +127,12 @@ do_release() {
     
     mkdir -p "$RELEASE_DIR"
 
-    # For Linux we create just amd64 arch build
+    # For Linux create both amd64 and arm64 builds
     GOOS=linux GOARCH=amd64 rel_build
     tar --gzip -cvf "${RELEASE_DIR}/${APP_NAME}-linux-amd64.tar.gz" -C "$OUT_DIR" "$APP_NAME"
+
+    GOOS=linux GOARCH=arm64 rel_build
+    tar --gzip -cvf "${RELEASE_DIR}/${APP_NAME}-linux-arm64.tar.gz" -C "$OUT_DIR" "$APP_NAME"
 
     # For macOS create both amd64 and arm64 builds
     GOOS=darwin GOARCH=amd64 rel_build
