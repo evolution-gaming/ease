@@ -172,7 +172,6 @@ func (a *App) encode(plan encoding.Plan) error {
 		// Create VMAF tool configuration.
 		vmafCfg := vqm.FfmpegVMAFConfig{
 			FfmpegPath:         a.cfg.FfmpegPath.Value(),
-			LibvmafModelPath:   a.cfg.LibvmafModelPath.Value(),
 			FfmpegVMAFTemplate: a.cfg.FfmpegVMAFTemplate.Value(),
 			ResultFile:         resFile,
 		}

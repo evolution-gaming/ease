@@ -28,13 +28,13 @@ import (
 )
 
 var DefaultFfmpegVMAFTemplate = "-hide_banner -i {{.CompressedFile}} -i {{.SourceFile}} " +
-	"-lavfi libvmaf=n_subsample=1:log_path={{.ResultFile}}:feature=name=psnr:" +
-	"log_fmt=json:model=path={{.ModelPath}}:n_threads={{.NThreads}} -f null -"
+	"-lavfi \"[0:v]setpts=PTS-STARTPTS[distorted]; [1:v]setpts=PTS-STARTPTS[reference]; " +
+	"[distorted][reference]libvmaf=n_subsample=1:log_path={{.ResultFile}}:feature=name=psnr:log_fmt=json:n_threads={{.NThreads}}\" " +
+	"-f null -"
 
 // FfmpegVMAFConfig exposes parameters for ffmpegVMAF creation.
 type FfmpegVMAFConfig struct {
 	FfmpegPath         string
-	LibvmafModelPath   string
 	FfmpegVMAFTemplate string
 	ResultFile         string
 }
@@ -52,13 +52,11 @@ func NewFfmpegVMAF(cfg *FfmpegVMAFConfig, compressedFile, sourceFile string) (*F
 		SourceFile     string
 		CompressedFile string
 		ResultFile     string
-		ModelPath      string
 		NThreads       int
 	}{
 		SourceFile:     sourceFile,
 		CompressedFile: compressedFile,
 		ResultFile:     cfg.ResultFile,
-		ModelPath:      cfg.LibvmafModelPath,
 		NThreads:       nThreads,
 	}
 

@@ -15,6 +15,7 @@ import (
 	"testing"
 
 	"github.com/evolution-gaming/ease/internal/encoding"
+	"github.com/evolution-gaming/ease/internal/testutil"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -22,6 +23,7 @@ import (
 
 // Happy path functional test for run sub-command.
 func Test_RunApp_Run(t *testing.T) {
+	testutil.EnsureFFmpegWithVMAF(t)
 	tempDir := t.TempDir()
 	ePlan := fixPlanConfig(t)
 	outDir := path.Join(tempDir, "out")
@@ -197,6 +199,7 @@ func Test_RunApp_Run_MisalignedFrames(t *testing.T) {
 
 // Functional tests for other sub-commands..
 func TestIntegration_AllSubcommands(t *testing.T) {
+	testutil.EnsureFFmpegWithVMAF(t)
 	tempDir := t.TempDir()
 	outDir := path.Join(tempDir, "out")
 	ePlan := fixPlanConfig(t)

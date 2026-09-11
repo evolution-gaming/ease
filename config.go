@@ -30,7 +30,6 @@ var (
 type Config struct {
 	FfmpegPath         ConfigVal[string] `json:"ffmpeg_path"`
 	FfprobePath        ConfigVal[string] `json:"ffprobe_path"`
-	LibvmafModelPath   ConfigVal[string] `json:"libvmaf_model_path"`
 	FfmpegVMAFTemplate ConfigVal[string] `json:"ffmpeg_vmaf_template"`
 	ReportFileName     ConfigVal[string] `json:"report_file_name"`
 }
@@ -47,10 +46,6 @@ func (c *Config) Verify() error {
 	// Check that ffprobe exists.
 	if !fileExists(c.FfprobePath.Value()) {
 		msgs = append(msgs, "invalid ffprobe path")
-	}
-	// Check that libvmaf model file exists.
-	if !fileExists(c.LibvmafModelPath.Value()) {
-		msgs = append(msgs, "invalid libvmaf model file path")
 	}
 	// Template should not be nil.
 	if c.FfmpegVMAFTemplate.IsNil() {
@@ -80,9 +75,6 @@ func (c *Config) OverrideFrom(src Config) {
 	if !src.FfprobePath.IsNil() {
 		c.FfprobePath = src.FfprobePath
 	}
-	if !src.LibvmafModelPath.IsNil() {
-		c.LibvmafModelPath = src.LibvmafModelPath
-	}
 	if !src.FfmpegVMAFTemplate.IsNil() {
 		c.FfmpegVMAFTemplate = src.FfmpegVMAFTemplate
 	}
@@ -110,16 +102,9 @@ func loadDefaultConfig() Config {
 		ffprobe = "not found"
 	}
 
-	// For default configuration attempt to locate VMAF model file.
-	libvmafModel, err := tools.FindLibvmafModel()
-	if err != nil {
-		libvmafModel = "not found"
-	}
-
 	cfg = Config{
 		FfmpegPath:         NewConfigVal(ffmpeg),
 		FfprobePath:        NewConfigVal(ffprobe),
-		LibvmafModelPath:   NewConfigVal(libvmafModel),
 		FfmpegVMAFTemplate: NewConfigVal(vqm.DefaultFfmpegVMAFTemplate),
 		ReportFileName:     NewConfigVal(defaultReportFile),
 	}

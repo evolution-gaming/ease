@@ -11,26 +11,44 @@ import (
 	"path"
 	"testing"
 
+	"github.com/evolution-gaming/ease/internal/logging"
+	"github.com/evolution-gaming/ease/internal/testutil"
 	"github.com/evolution-gaming/ease/internal/tools"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// Define flag for `go test` to save libvmaf result file. This comes handy when need to
-// add a new version of libvmaf (see testdata/vqm directory).
+// Define flags for `go test`.
+//
+//   -save-result     to save libvmaf result file. This comes handy when need to
+//                    add a new version of libvmaf (see testdata/vqm directory).
+//   -debug           enable loglevel debug for package tests.
 //
 // Example:
 //
 //	go test -run ^TestFfmpegVMAF ./internal/vqm -save-result
-var saveResultFile = flag.Bool("save-result", false, "Save result file")
+//	go test -v -run ^TestFfmpegVMAF ./internal/vqm -debug
+
+var (
+	saveResultFile = flag.Bool("save-result", false, "Save result file")
+	flDebug        = flag.Bool("debug", false, "Enable debug behaviour, like logging")
+)
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if *flDebug {
+		logging.EnableDebugLogger()
+	}
+	os.Exit(m.Run())
+}
 
 func TestFfmpegVMAF(t *testing.T) {
+	testutil.EnsureFFmpegWithVMAF(t)
 	var tool *FfmpegVMAF // tool under test
 	var aggMetrics *AggregateMetric
 
 	wrkDir := t.TempDir()
 	ffmpegExePath, _ := tools.FfmpegPath()
-	libvmafModelPath, _ := tools.FindLibvmafModel()
 
 	srcFile := "../../testdata/video/testsrc01.mp4"
 	compressedFile := "../../testdata/video/testsrc01.mp4"
@@ -44,7 +62,6 @@ func TestFfmpegVMAF(t *testing.T) {
 		var err error
 		tool, err = NewFfmpegVMAF(&FfmpegVMAFConfig{
 			FfmpegPath:         ffmpegExePath,
-			LibvmafModelPath:   libvmafModelPath,
 			FfmpegVMAFTemplate: DefaultFfmpegVMAFTemplate,
 			ResultFile:         resultFile,
 		}, compressedFile, srcFile)
@@ -63,25 +80,25 @@ func TestFfmpegVMAF(t *testing.T) {
 	})
 
 	t.Run("Aggregate metrics should be non-zero", func(t *testing.T) {
+		require.NotNil(t, aggMetrics)
 		assert.NotEqual(t, aggMetrics.VMAF.Mean, float64(0), "No VMAF metric detected")
 		assert.NotEqual(t, aggMetrics.PSNR.Mean, float64(0), "No PSNR metric detected")
 	})
 }
 
 func TestFfmpegVMAF_WithMSSSIM(t *testing.T) {
+	testutil.EnsureFFmpegWithVMAF(t)
 	ffmpegExePath, _ := tools.FfmpegPath()
-	libvmafModelPath, _ := tools.FindLibvmafModel()
 	srcFile := "../../testdata/video/testsrc01.mp4"
 	compressedFile := "../../testdata/video/testsrc01.mp4"
 
 	// Enable MS-SSIM calculation feature, which is not enabled by default.
 	ffmpegVMAFTemplate := "-hide_banner -i {{.CompressedFile}} -i {{.SourceFile}} " +
 		"-lavfi libvmaf=n_subsample=1:log_path={{.ResultFile}}:feature=name=psnr|name=float_ms_ssim:" +
-		"log_fmt=json:model=path={{.ModelPath}}:n_threads={{.NThreads}} -f null -"
+		"log_fmt=json:n_threads={{.NThreads}} -f null -"
 
 	tool, err := NewFfmpegVMAF(&FfmpegVMAFConfig{
 		FfmpegPath:         ffmpegExePath,
-		LibvmafModelPath:   libvmafModelPath,
 		FfmpegVMAFTemplate: ffmpegVMAFTemplate,
 		ResultFile:         path.Join(t.TempDir(), "result_2.json"),
 	}, compressedFile, srcFile)
@@ -97,8 +114,8 @@ func TestFfmpegVMAF_WithMSSSIM(t *testing.T) {
 }
 
 func TestFfmpegVMAF_Negative(t *testing.T) {
+	testutil.EnsureFFmpegWithVMAF(t)
 	ffmpegExePath, _ := tools.FfmpegPath()
-	libvmafModelPath, _ := tools.FindLibvmafModel()
 
 	// Valid tool fixture.
 	getValidTool := func() *FfmpegVMAF {
@@ -107,7 +124,6 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 		resultFile := t.TempDir() + "/result.json"
 		tool, err := NewFfmpegVMAF(&FfmpegVMAFConfig{
 			FfmpegPath:         ffmpegExePath,
-			LibvmafModelPath:   libvmafModelPath,
 			FfmpegVMAFTemplate: DefaultFfmpegVMAFTemplate,
 			ResultFile:         resultFile,
 		}, compressedFile, srcFile)
@@ -124,7 +140,6 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 		resultFile := t.TempDir() + "/result.json"
 		tool, err := NewFfmpegVMAF(&FfmpegVMAFConfig{
 			FfmpegPath:         ffmpegExePath,
-			LibvmafModelPath:   libvmafModelPath,
 			FfmpegVMAFTemplate: DefaultFfmpegVMAFTemplate,
 			ResultFile:         resultFile,
 		}, compressedFile, srcFile)
