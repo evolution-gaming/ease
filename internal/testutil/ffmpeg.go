@@ -1,3 +1,8 @@
+// Copyright ©2026 Evolution. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
+// Package testutil defines testing helpers.
 package testutil
 
 import (
@@ -13,7 +18,7 @@ import (
 
 var (
 	vmafOnce     sync.Once
-	vmafCheckErr error
+	errVmafCheck error
 )
 
 // EnsureFFmpegWithVMAF will check if available FFmpeg binary includes libvmaf.
@@ -25,12 +30,12 @@ func EnsureFFmpegWithVMAF(t *testing.T) {
 	vmafOnce.Do(func() {
 		ffmpegExePath, err := tools.FfmpegPath()
 		if err != nil {
-			vmafCheckErr = fmt.Errorf("Failed to locale FFmpeg binary: %w", err)
+			errVmafCheck = fmt.Errorf("failed to locate FFmpeg binary: %w", err)
 			return
 		}
 
 		// Check that VMAF is supported by available FFmpeg binary.
-		ctx, cancel := context.WithTimeout(t.Context(), 1*time.Second)
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 		defer cancel()
 
 		cmd := exec.CommandContext(
@@ -41,11 +46,11 @@ func EnsureFFmpegWithVMAF(t *testing.T) {
 		)
 
 		if err = cmd.Run(); err != nil {
-			vmafCheckErr = fmt.Errorf("FFmpeg binary (%s) not usable for VMAF calculation: %w", ffmpegExePath, err)
+			errVmafCheck = fmt.Errorf("FFmpeg binary (%s) not usable for VMAF calculation: %w", ffmpegExePath, err)
 		}
 	})
 
-	if vmafCheckErr != nil {
-		t.Fatalf("%v", vmafCheckErr)
+	if errVmafCheck != nil {
+		t.Fatalf("%v", errVmafCheck)
 	}
 }

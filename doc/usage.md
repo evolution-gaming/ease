@@ -1,7 +1,8 @@
 # Usage of ease tool
 
-**Note:** Version 5.X of `ffmpeg` and `ffprobe` binaries (built with `libvmaf`) are
-required to be available on `$PATH` for video quality calculations.
+**Note:** Version >= 5.X of `ffmpeg` and `ffprobe` binaries (built with `libvmaf`) are
+required to be available on `$PATH` for video quality calculations. It is
+preferrable that libvmaf version >= 2.0.0 is used with **builtin** models.
 
 For full and up-to-date usage examples and documentation of options consult
 `ease` tool help with `ease -h`.
@@ -216,12 +217,12 @@ executing `ease dump-conf`:
 
 ```
 $ ease dump-conf
+
 {
   "ffmpeg_path": "/usr/bin/ffmpeg",
   "ffprobe_path": "/usr/bin/ffprobe",
-  "libvmaf_model_path": "/usr/share/model/vmaf_v0.6.1.json",
-  "ffmpeg_vmaf_template": "-hide_banner -i {{.CompressedFile}} -i {{.SourceFile}} -lavfi libvmaf=n_subsample=1:log_path={{.ResultFile}}:feature=name=psnr:log_fmt=json:model=path={{.ModelPath}}:n_threads={{.NThreads}} -f null -",
-  "report_file_name": "report.json"
+  "ffmpeg_vmaf_template": "-hide_banner -i {{.CompressedFile}} -i {{.SourceFile}} -lavfi \"[0:v]setpts=PTS-STARTPTS[distorted]; [1:v]setpts=PTS-STARTPTS[reference]; [distorted][reference]libvmaf=n_subsample=1:log_path={{.ResultFile}}:feature=name=psnr:log_fmt=json:n_threads={{.NThreads}}\" -f null -",
+  "report_file_name": "report.csv"
 }
 ```
 
@@ -238,3 +239,5 @@ with the `-conf` flag.
 ```
 $ ease run -plan encoding_plan.json -out-dir out -conf <path/to/config.json>
 ```
+
+A few sample configuration files are located in [example](./example) directory.

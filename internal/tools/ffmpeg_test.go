@@ -188,11 +188,3 @@ func Test_FfprobeExtractMetadata_Negative(t *testing.T) {
 		})
 	}
 }
-
-func Test_FindLibvmafModel(t *testing.T) {
-	t.Run("Model path should be valid", func(t *testing.T) {
-		gotPath, err := FindLibvmafModel()
-		assert.NoError(t, err)
-		assert.FileExists(t, gotPath)
-	})
-}
