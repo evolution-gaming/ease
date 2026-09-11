@@ -176,25 +176,30 @@ func Test_ffmpegVMAFResult_UnmarshalVersions(t *testing.T) {
 	tests := map[string]struct {
 		resultFile string
 	}{
-		"libvmaf v2.3.0": {
+		"2.3.0": {
 			resultFile: "../../testdata/vqm/libvmaf_v2.3.0.json",
 		},
-		"libvmaf v2.3.1": {
+		"2.3.1": {
 			resultFile: "../../testdata/vqm/libvmaf_v2.3.1.json",
 		},
-		"libvmaf v3.0.0": {
+		"3.0.0": {
 			resultFile: "../../testdata/vqm/libvmaf_v3.0.0.json",
+		},
+		"3.2.0": {
+			resultFile: "../../testdata/vqm/libvmaf_v3.2.0.json",
 		},
 	}
 
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
+	for version, tt := range tests {
+		t.Run(version, func(t *testing.T) {
 			jsonDoc, err := os.ReadFile(tt.resultFile)
 			assert.NoError(t, err)
 
 			res := &ffmpegVMAFResult{}
 			err2 := json.Unmarshal(jsonDoc, res)
 			require.NoError(t, err2)
+
+			assert.Equal(t, version, res.Version)
 
 			// Check that per-frame VQM values were properly unmarshalled (should not be 0).
 			for _, v := range res.Frames {
