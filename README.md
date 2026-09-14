@@ -24,9 +24,8 @@ carries a meaning of:
 Tool depends on `ffmpeg` and `ffprobe` version >= 5.0 built with `libvmaf` support. Both
 `ffmpeg` and `ffprobe` must be on `$PATH`.
 
-If your GNU/Linux distribution does not provide recent `ffmpeg` package or does not
-include `libvmaf` then there are static builds of `ffmpeg` available from
-https://johnvansickle.com/ffmpeg/.
+If your GNU/Linux distribution does not provide a recent `ffmpeg` package or does not
+include `libvmaf` then there are static builds of `ffmpeg` available from [FFmpeg Static Auto-Builds](https://github.com/BtbN/FFmpeg-Builds/releases) project (endorsed by [ffmpeg.org](https://ffmpeg.org/download.html)).
 
 ## Install
 
