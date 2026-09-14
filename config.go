@@ -219,6 +219,11 @@ func (o ConfigVal[T]) MarshalJSON() ([]byte, error) {
 	return json.Marshal(o.Value())
 }
 
+// String implements stringer for ConfigVal[T].
+func (o ConfigVal[T]) String() string {
+	return fmt.Sprint(o.Value())
+}
+
 func CreateDumpConfCommand() *DumpConfApp {
 	longHelp := `Command "dump-conf" will print actual application configuration taking into account
 configuration file provided and default configuration values.

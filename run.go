@@ -398,7 +398,7 @@ func (a *App) Run(args []string) error {
 		return &AppError{exitCode: 1, msg: fmt.Sprintf("FFmpeg VMAF support validation: %s", err)}
 	}
 
-	logging.Debugf("Application configuration: %#v", a.cfg)
+	logging.Debugf("Application configuration: %+v", a.cfg)
 	// Check if configuration is valid.
 	if err := a.cfg.Verify(); err != nil {
 		return &AppError{exitCode: 1, msg: fmt.Sprintf("configuration validation: %s", err)}
