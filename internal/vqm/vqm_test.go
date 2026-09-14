@@ -81,8 +81,8 @@ func TestFfmpegVMAF(t *testing.T) {
 
 	t.Run("Aggregate metrics should be non-zero", func(t *testing.T) {
 		require.NotNil(t, aggMetrics)
-		assert.NotEqual(t, aggMetrics.VMAF.Mean, float64(0), "No VMAF metric detected")
-		assert.NotEqual(t, aggMetrics.PSNR.Mean, float64(0), "No PSNR metric detected")
+		assert.NotZero(t, aggMetrics.VMAF.Mean, "No VMAF metric detected")
+		assert.NotZero(t, aggMetrics.PSNR.Mean, "No PSNR metric detected")
 	})
 }
 
@@ -108,9 +108,9 @@ func TestFfmpegVMAF_WithMSSSIM(t *testing.T) {
 
 	aggMetrics, err := tool.GetMetrics()
 	assert.NoError(t, err)
-	assert.NotEqual(t, aggMetrics.VMAF.Mean, float64(0), "No VMAF metric detected")
-	assert.NotEqual(t, aggMetrics.PSNR.Mean, float64(0), "No PSNR metric detected")
-	assert.NotEqual(t, aggMetrics.MS_SSIM.Mean, float64(0), "No MS-SSIM metric detected")
+	assert.NotZero(t, aggMetrics.VMAF.Mean, "No VMAF metric detected")
+	assert.NotZero(t, aggMetrics.PSNR.Mean, "No PSNR metric detected")
+	assert.NotZero(t, aggMetrics.MS_SSIM.Mean, "No MS-SSIM metric detected")
 }
 
 func TestFfmpegVMAF_Negative(t *testing.T) {
@@ -201,28 +201,24 @@ func Test_ffmpegVMAFResult_UnmarshalVersions(t *testing.T) {
 
 			assert.Equal(t, version, res.Version)
 
-			// Check that per-frame VQM values were properly unmarshalled (should not be 0).
+			// Check that per-frame VQM values were properly unmarshalled
+			// (should not be 0). Only VMAF and PSNR are verified, since MS-SSIM
+			// measurement is disabled in default configuration.
 			for _, v := range res.Frames {
-				assert.NotEqual(t, v.Metrics.VMAF, 0)
-				assert.NotEqual(t, v.Metrics.PSNR, 0)
-				assert.NotEqual(t, v.Metrics.MS_SSIM, 0)
+				assert.NotZero(t, v.Metrics.VMAF)
+				assert.NotZero(t, v.Metrics.PSNR)
 			}
 
 			// Check that pooled metric values were properly unmarshalled (should not be 0).
-			assert.NotEqual(t, res.PooledMetrics.MS_SSIM.Min, 0)
-			assert.NotEqual(t, res.PooledMetrics.MS_SSIM.Max, 0)
-			assert.NotEqual(t, res.PooledMetrics.MS_SSIM.Mean, 0)
-			assert.NotEqual(t, res.PooledMetrics.MS_SSIM.HarmonicMean, 0)
+			assert.NotZero(t, res.PooledMetrics.VMAF.Min)
+			assert.NotZero(t, res.PooledMetrics.VMAF.Max)
+			assert.NotZero(t, res.PooledMetrics.VMAF.Mean)
+			assert.NotZero(t, res.PooledMetrics.VMAF.HarmonicMean)
 
-			assert.NotEqual(t, res.PooledMetrics.VMAF.Min, 0)
-			assert.NotEqual(t, res.PooledMetrics.VMAF.Max, 0)
-			assert.NotEqual(t, res.PooledMetrics.VMAF.Mean, 0)
-			assert.NotEqual(t, res.PooledMetrics.VMAF.HarmonicMean, 0)
-
-			assert.NotEqual(t, res.PooledMetrics.PSNR.Min, 0)
-			assert.NotEqual(t, res.PooledMetrics.PSNR.Max, 0)
-			assert.NotEqual(t, res.PooledMetrics.PSNR.Mean, 0)
-			assert.NotEqual(t, res.PooledMetrics.PSNR.HarmonicMean, 0)
+			assert.NotZero(t, res.PooledMetrics.PSNR.Min)
+			assert.NotZero(t, res.PooledMetrics.PSNR.Max)
+			assert.NotZero(t, res.PooledMetrics.PSNR.Mean)
+			assert.NotZero(t, res.PooledMetrics.PSNR.HarmonicMean)
 		})
 	}
 }

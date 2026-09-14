@@ -2,7 +2,7 @@
 
 **Note:** Version >= 5.X of `ffmpeg` and `ffprobe` binaries (built with `libvmaf`) are
 required to be available on `$PATH` for video quality calculations. It is
-preferrable that libvmaf version >= 2.0.0 is used with **builtin** models.
+preferable that `libvmaf` version >= 2.0.0 is used with **builtin** models.
 
 For full and up-to-date usage examples and documentation of options consult
 `ease` tool help with `ease -h`.
@@ -240,4 +240,4 @@ with the `-conf` flag.
 $ ease run -plan encoding_plan.json -out-dir out -conf <path/to/config.json>
 ```
 
-A few sample configuration files are located in [example](./example) directory.
+A few sample configuration files are located in [example](../example) directory.
