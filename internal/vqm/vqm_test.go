@@ -13,7 +13,6 @@ import (
 
 	"github.com/evolution-gaming/ease/internal/logging"
 	"github.com/evolution-gaming/ease/internal/testutil"
-	"github.com/evolution-gaming/ease/internal/tools"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -43,12 +42,11 @@ func TestMain(m *testing.M) {
 }
 
 func TestFfmpegVMAF(t *testing.T) {
-	testutil.EnsureFFmpegWithVMAF(t)
 	var tool *FfmpegVMAF // tool under test
 	var aggMetrics *AggregateMetric
 
+	ffmpegExePath := testutil.EnsureFfmpegWithVMAF(t)
 	wrkDir := t.TempDir()
-	ffmpegExePath, _ := tools.FfmpegPath()
 
 	srcFile := "../../testdata/video/testsrc01.mp4"
 	compressedFile := "../../testdata/video/testsrc01.mp4"
@@ -87,8 +85,7 @@ func TestFfmpegVMAF(t *testing.T) {
 }
 
 func TestFfmpegVMAF_WithMSSSIM(t *testing.T) {
-	testutil.EnsureFFmpegWithVMAF(t)
-	ffmpegExePath, _ := tools.FfmpegPath()
+	ffmpegExePath := testutil.EnsureFfmpegWithVMAF(t)
 	srcFile := "../../testdata/video/testsrc01.mp4"
 	compressedFile := "../../testdata/video/testsrc01.mp4"
 
@@ -114,8 +111,7 @@ func TestFfmpegVMAF_WithMSSSIM(t *testing.T) {
 }
 
 func TestFfmpegVMAF_Negative(t *testing.T) {
-	testutil.EnsureFFmpegWithVMAF(t)
-	ffmpegExePath, _ := tools.FfmpegPath()
+	ffmpegExePath := testutil.EnsureFfmpegWithVMAF(t)
 
 	// Valid tool fixture.
 	getValidTool := func() *FfmpegVMAF {

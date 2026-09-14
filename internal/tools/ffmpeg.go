@@ -7,11 +7,13 @@ package tools
 
 import (
 	"cmp"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/evolution-gaming/ease/internal/logging"
 	"github.com/evolution-gaming/ease/internal/video"
@@ -105,4 +107,22 @@ func FfprobeExtractMetadata(videoFile string) (video.Metadata, error) {
 	logging.Debugf("%s %+v", videoFile, vmeta)
 
 	return vmeta, nil
+}
+
+// CheckFfmpegVMAFSupport will verifu if VMAF is supported by given FFmpeg binary.
+func CheckFfmpegVMAFSupport(exePath string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	cmd := exec.CommandContext(
+		ctx, exePath,
+		"-f", "lavfi", "-i", "testsrc=size=64x64:rate=1:duration=1",
+		"-f", "lavfi", "-i", "testsrc=size=64x64:rate=1:duration=1",
+		"-lavfi", "libvmaf", "-f", "null", "-",
+	)
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("VMAF support missing for %v: %w", exePath, err)
+	}
+	return nil
 }
