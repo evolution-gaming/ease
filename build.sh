@@ -63,7 +63,8 @@ do_test() {
         exit 1
     fi
 
-    "$GO" test -cover ./...
+    # -count=1 avoids caching test results.
+    "$GO" test -count=1 -cover ./...
 }
 
 # Create test coverage report HTML.

@@ -172,7 +172,6 @@ func (a *App) encode(plan encoding.Plan) error {
 		// Create VMAF tool configuration.
 		vmafCfg := vqm.FfmpegVMAFConfig{
 			FfmpegPath:         a.cfg.FfmpegPath.Value(),
-			LibvmafModelPath:   a.cfg.LibvmafModelPath.Value(),
 			FfmpegVMAFTemplate: a.cfg.FfmpegVMAFTemplate.Value(),
 			ResultFile:         resFile,
 		}
@@ -394,7 +393,12 @@ func (a *App) Run(args []string) error {
 		return err
 	}
 
-	logging.Debugf("Application configuration: %#v", a.cfg)
+	// Verify VMAF support for detected FFmpeg.
+	if err := tools.CheckFfmpegVMAFSupport(a.cfg.FfmpegPath.Value()); err != nil {
+		return &AppError{exitCode: 1, msg: fmt.Sprintf("FFmpeg VMAF support validation: %s", err)}
+	}
+
+	logging.Debugf("Application configuration: %+v", a.cfg)
 	// Check if configuration is valid.
 	if err := a.cfg.Verify(); err != nil {
 		return &AppError{exitCode: 1, msg: fmt.Sprintf("configuration validation: %s", err)}

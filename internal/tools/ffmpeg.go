@@ -2,17 +2,18 @@
 // Use of this source code is governed by a MIT-style
 // license that can be found in the LICENSE file.
 
-// Ffmpeg family related tools.
+// Package tools contains FFmpeg family related tools.
 package tools
 
 import (
 	"cmp"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"path/filepath"
+	"time"
 
 	"github.com/evolution-gaming/ease/internal/logging"
 	"github.com/evolution-gaming/ease/internal/video"
@@ -21,15 +22,6 @@ import (
 var (
 	ffprobeCmd = "ffprobe"
 	ffmpegCmd  = "ffmpeg"
-	// A specific libvmaf model file to be used when calculating VMAF score.
-	libvmafModel = "vmaf_v0.6.1.json"
-	// A list of known locations where various distributions of ffmpeg may put
-	// libvmaf models.
-	libvmafModelLocations = []string{
-		"/usr/local/share/model",
-		"/usr/share/model",
-		"/opt/ffmpeg-static/model",
-	}
 )
 
 // FfmpegPath will return path to ffmpeg binary and error if path is not found.
@@ -117,17 +109,20 @@ func FfprobeExtractMetadata(videoFile string) (video.Metadata, error) {
 	return vmeta, nil
 }
 
-// FindLibvmafModel will return path to libvmaf model file.
-//
-// XXX: Although not specifically related to ffmpeg family tools, but for time
-// being keep it here.
-func FindLibvmafModel() (string, error) {
-	for _, l := range libvmafModelLocations {
-		p := path.Join(l, libvmafModel)
-		if _, err := os.Stat(p); err == nil {
-			return p, nil
-		}
-	}
+// CheckFfmpegVMAFSupport will verifu if VMAF is supported by given FFmpeg binary.
+func CheckFfmpegVMAFSupport(exePath string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	return "", fmt.Errorf("libvmaf model file %s not found in any of %s", libvmafModel, libvmafModelLocations)
+	cmd := exec.CommandContext(
+		ctx, exePath,
+		"-f", "lavfi", "-i", "testsrc=size=64x64:rate=1:duration=1",
+		"-f", "lavfi", "-i", "testsrc=size=64x64:rate=1:duration=1",
+		"-lavfi", "libvmaf", "-f", "null", "-",
+	)
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("VMAF support missing for %v: %w", exePath, err)
+	}
+	return nil
 }

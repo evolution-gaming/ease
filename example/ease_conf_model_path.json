@@ -1,0 +1,3 @@
+{
+  "ffmpeg_vmaf_template": "-hide_banner -i {{.CompressedFile}} -i {{.SourceFile}} -lavfi libvmaf=n_subsample=1:log_path={{.ResultFile}}:feature=name=psnr:log_fmt=json:model=path=/usr/local/share/model/vmaf_v0.6.1.json:n_threads={{.NThreads}} -f null -"
+}

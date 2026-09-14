@@ -40,14 +40,12 @@ func Test_loadConfigFile(t *testing.T) {
 			given: []byte(`{
 				"ffmpeg_path": "test_ffmpeg",
 				"ffprobe_path": "test_ffprobe",
-				"libvmaf_model_path": "test_libvmaf_model.json",
 				"ffmpeg_vmaf_template": "test template",
 				"report_file_name": "test_report.json"
 			}`),
 			want: Config{
 				FfmpegPath:         NewConfigVal("test_ffmpeg"),
 				FfprobePath:        NewConfigVal("test_ffprobe"),
-				LibvmafModelPath:   NewConfigVal("test_libvmaf_model.json"),
 				FfmpegVMAFTemplate: NewConfigVal("test template"),
 				ReportFileName:     NewConfigVal("test_report.json"),
 			},
@@ -89,7 +87,6 @@ func Test_Config_OverrideFrom(t *testing.T) {
 		return Config{
 			FfmpegPath:         NewConfigVal("base_ffmpeg"),
 			FfprobePath:        NewConfigVal("base_ffprobe"),
-			LibvmafModelPath:   NewConfigVal("base_libvmaf_model.json"),
 			FfmpegVMAFTemplate: NewConfigVal("base template"),
 			ReportFileName:     NewConfigVal("base_report.json"),
 		}
@@ -103,14 +100,12 @@ func Test_Config_OverrideFrom(t *testing.T) {
 			overrideSrc: Config{
 				FfmpegPath:         NewConfigVal("test_ffmpeg"),
 				FfprobePath:        NewConfigVal("test_ffprobe"),
-				LibvmafModelPath:   NewConfigVal("test_libvmaf_model.json"),
 				FfmpegVMAFTemplate: NewConfigVal("test template"),
 				ReportFileName:     NewConfigVal("test_report.json"),
 			},
 			want: Config{
 				FfmpegPath:         NewConfigVal("test_ffmpeg"),
 				FfprobePath:        NewConfigVal("test_ffprobe"),
-				LibvmafModelPath:   NewConfigVal("test_libvmaf_model.json"),
 				FfmpegVMAFTemplate: NewConfigVal("test template"),
 				ReportFileName:     NewConfigVal("test_report.json"),
 			},
@@ -125,9 +120,8 @@ func Test_Config_OverrideFrom(t *testing.T) {
 				FfmpegPath:         NewConfigVal("test_ffmpeg"),
 				FfmpegVMAFTemplate: NewConfigVal("test template"),
 				// Unmodified fields.
-				FfprobePath:      NewConfigVal("base_ffprobe"),
-				LibvmafModelPath: NewConfigVal("base_libvmaf_model.json"),
-				ReportFileName:   NewConfigVal("base_report.json"),
+				FfprobePath:    NewConfigVal("base_ffprobe"),
+				ReportFileName: NewConfigVal("base_report.json"),
 			},
 		},
 		"Empty config does not override any fields": {

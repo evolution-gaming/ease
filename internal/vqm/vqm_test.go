@@ -11,26 +11,42 @@ import (
 	"path"
 	"testing"
 
-	"github.com/evolution-gaming/ease/internal/tools"
+	"github.com/evolution-gaming/ease/internal/logging"
+	"github.com/evolution-gaming/ease/internal/testutil"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
-// Define flag for `go test` to save libvmaf result file. This comes handy when need to
-// add a new version of libvmaf (see testdata/vqm directory).
+// Define flags for `go test`.
+//
+//   -save-result     to save libvmaf result file. This comes handy when need to
+//                    add a new version of libvmaf (see testdata/vqm directory).
+//   -debug           enable loglevel debug for package tests.
 //
 // Example:
 //
 //	go test -run ^TestFfmpegVMAF ./internal/vqm -save-result
-var saveResultFile = flag.Bool("save-result", false, "Save result file")
+//	go test -v -run ^TestFfmpegVMAF ./internal/vqm -debug
+
+var (
+	saveResultFile = flag.Bool("save-result", false, "Save result file")
+	flDebug        = flag.Bool("debug", false, "Enable debug behaviour, like logging")
+)
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if *flDebug {
+		logging.EnableDebugLogger()
+	}
+	os.Exit(m.Run())
+}
 
 func TestFfmpegVMAF(t *testing.T) {
 	var tool *FfmpegVMAF // tool under test
 	var aggMetrics *AggregateMetric
 
+	ffmpegExePath := testutil.EnsureFfmpegWithVMAF(t)
 	wrkDir := t.TempDir()
-	ffmpegExePath, _ := tools.FfmpegPath()
-	libvmafModelPath, _ := tools.FindLibvmafModel()
 
 	srcFile := "../../testdata/video/testsrc01.mp4"
 	compressedFile := "../../testdata/video/testsrc01.mp4"
@@ -44,7 +60,6 @@ func TestFfmpegVMAF(t *testing.T) {
 		var err error
 		tool, err = NewFfmpegVMAF(&FfmpegVMAFConfig{
 			FfmpegPath:         ffmpegExePath,
-			LibvmafModelPath:   libvmafModelPath,
 			FfmpegVMAFTemplate: DefaultFfmpegVMAFTemplate,
 			ResultFile:         resultFile,
 		}, compressedFile, srcFile)
@@ -63,25 +78,24 @@ func TestFfmpegVMAF(t *testing.T) {
 	})
 
 	t.Run("Aggregate metrics should be non-zero", func(t *testing.T) {
-		assert.NotEqual(t, aggMetrics.VMAF.Mean, float64(0), "No VMAF metric detected")
-		assert.NotEqual(t, aggMetrics.PSNR.Mean, float64(0), "No PSNR metric detected")
+		require.NotNil(t, aggMetrics)
+		assert.NotZero(t, aggMetrics.VMAF.Mean, "No VMAF metric detected")
+		assert.NotZero(t, aggMetrics.PSNR.Mean, "No PSNR metric detected")
 	})
 }
 
 func TestFfmpegVMAF_WithMSSSIM(t *testing.T) {
-	ffmpegExePath, _ := tools.FfmpegPath()
-	libvmafModelPath, _ := tools.FindLibvmafModel()
+	ffmpegExePath := testutil.EnsureFfmpegWithVMAF(t)
 	srcFile := "../../testdata/video/testsrc01.mp4"
 	compressedFile := "../../testdata/video/testsrc01.mp4"
 
 	// Enable MS-SSIM calculation feature, which is not enabled by default.
 	ffmpegVMAFTemplate := "-hide_banner -i {{.CompressedFile}} -i {{.SourceFile}} " +
 		"-lavfi libvmaf=n_subsample=1:log_path={{.ResultFile}}:feature=name=psnr|name=float_ms_ssim:" +
-		"log_fmt=json:model=path={{.ModelPath}}:n_threads={{.NThreads}} -f null -"
+		"log_fmt=json:n_threads={{.NThreads}} -f null -"
 
 	tool, err := NewFfmpegVMAF(&FfmpegVMAFConfig{
 		FfmpegPath:         ffmpegExePath,
-		LibvmafModelPath:   libvmafModelPath,
 		FfmpegVMAFTemplate: ffmpegVMAFTemplate,
 		ResultFile:         path.Join(t.TempDir(), "result_2.json"),
 	}, compressedFile, srcFile)
@@ -91,14 +105,13 @@ func TestFfmpegVMAF_WithMSSSIM(t *testing.T) {
 
 	aggMetrics, err := tool.GetMetrics()
 	assert.NoError(t, err)
-	assert.NotEqual(t, aggMetrics.VMAF.Mean, float64(0), "No VMAF metric detected")
-	assert.NotEqual(t, aggMetrics.PSNR.Mean, float64(0), "No PSNR metric detected")
-	assert.NotEqual(t, aggMetrics.MS_SSIM.Mean, float64(0), "No MS-SSIM metric detected")
+	assert.NotZero(t, aggMetrics.VMAF.Mean, "No VMAF metric detected")
+	assert.NotZero(t, aggMetrics.PSNR.Mean, "No PSNR metric detected")
+	assert.NotZero(t, aggMetrics.MS_SSIM.Mean, "No MS-SSIM metric detected")
 }
 
 func TestFfmpegVMAF_Negative(t *testing.T) {
-	ffmpegExePath, _ := tools.FfmpegPath()
-	libvmafModelPath, _ := tools.FindLibvmafModel()
+	ffmpegExePath := testutil.EnsureFfmpegWithVMAF(t)
 
 	// Valid tool fixture.
 	getValidTool := func() *FfmpegVMAF {
@@ -107,7 +120,6 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 		resultFile := t.TempDir() + "/result.json"
 		tool, err := NewFfmpegVMAF(&FfmpegVMAFConfig{
 			FfmpegPath:         ffmpegExePath,
-			LibvmafModelPath:   libvmafModelPath,
 			FfmpegVMAFTemplate: DefaultFfmpegVMAFTemplate,
 			ResultFile:         resultFile,
 		}, compressedFile, srcFile)
@@ -124,7 +136,6 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 		resultFile := t.TempDir() + "/result.json"
 		tool, err := NewFfmpegVMAF(&FfmpegVMAFConfig{
 			FfmpegPath:         ffmpegExePath,
-			LibvmafModelPath:   libvmafModelPath,
 			FfmpegVMAFTemplate: DefaultFfmpegVMAFTemplate,
 			ResultFile:         resultFile,
 		}, compressedFile, srcFile)
@@ -161,19 +172,22 @@ func Test_ffmpegVMAFResult_UnmarshalVersions(t *testing.T) {
 	tests := map[string]struct {
 		resultFile string
 	}{
-		"libvmaf v2.3.0": {
+		"2.3.0": {
 			resultFile: "../../testdata/vqm/libvmaf_v2.3.0.json",
 		},
-		"libvmaf v2.3.1": {
+		"2.3.1": {
 			resultFile: "../../testdata/vqm/libvmaf_v2.3.1.json",
 		},
-		"libvmaf v3.0.0": {
+		"3.0.0": {
 			resultFile: "../../testdata/vqm/libvmaf_v3.0.0.json",
+		},
+		"3.2.0": {
+			resultFile: "../../testdata/vqm/libvmaf_v3.2.0.json",
 		},
 	}
 
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
+	for version, tt := range tests {
+		t.Run(version, func(t *testing.T) {
 			jsonDoc, err := os.ReadFile(tt.resultFile)
 			assert.NoError(t, err)
 
@@ -181,28 +195,26 @@ func Test_ffmpegVMAFResult_UnmarshalVersions(t *testing.T) {
 			err2 := json.Unmarshal(jsonDoc, res)
 			require.NoError(t, err2)
 
-			// Check that per-frame VQM values were properly unmarshalled (should not be 0).
+			assert.Equal(t, version, res.Version)
+
+			// Check that per-frame VQM values were properly unmarshalled
+			// (should not be 0). Only VMAF and PSNR are verified, since MS-SSIM
+			// measurement is disabled in default configuration.
 			for _, v := range res.Frames {
-				assert.NotEqual(t, v.Metrics.VMAF, 0)
-				assert.NotEqual(t, v.Metrics.PSNR, 0)
-				assert.NotEqual(t, v.Metrics.MS_SSIM, 0)
+				assert.NotZero(t, v.Metrics.VMAF)
+				assert.NotZero(t, v.Metrics.PSNR)
 			}
 
 			// Check that pooled metric values were properly unmarshalled (should not be 0).
-			assert.NotEqual(t, res.PooledMetrics.MS_SSIM.Min, 0)
-			assert.NotEqual(t, res.PooledMetrics.MS_SSIM.Max, 0)
-			assert.NotEqual(t, res.PooledMetrics.MS_SSIM.Mean, 0)
-			assert.NotEqual(t, res.PooledMetrics.MS_SSIM.HarmonicMean, 0)
+			assert.NotZero(t, res.PooledMetrics.VMAF.Min)
+			assert.NotZero(t, res.PooledMetrics.VMAF.Max)
+			assert.NotZero(t, res.PooledMetrics.VMAF.Mean)
+			assert.NotZero(t, res.PooledMetrics.VMAF.HarmonicMean)
 
-			assert.NotEqual(t, res.PooledMetrics.VMAF.Min, 0)
-			assert.NotEqual(t, res.PooledMetrics.VMAF.Max, 0)
-			assert.NotEqual(t, res.PooledMetrics.VMAF.Mean, 0)
-			assert.NotEqual(t, res.PooledMetrics.VMAF.HarmonicMean, 0)
-
-			assert.NotEqual(t, res.PooledMetrics.PSNR.Min, 0)
-			assert.NotEqual(t, res.PooledMetrics.PSNR.Max, 0)
-			assert.NotEqual(t, res.PooledMetrics.PSNR.Mean, 0)
-			assert.NotEqual(t, res.PooledMetrics.PSNR.HarmonicMean, 0)
+			assert.NotZero(t, res.PooledMetrics.PSNR.Min)
+			assert.NotZero(t, res.PooledMetrics.PSNR.Max)
+			assert.NotZero(t, res.PooledMetrics.PSNR.Mean)
+			assert.NotZero(t, res.PooledMetrics.PSNR.HarmonicMean)
 		})
 	}
 }
