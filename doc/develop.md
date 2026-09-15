@@ -11,12 +11,14 @@ expose any parts of the project as a reusable library.
   minimums Go version). Installation depends on OS, on GNU/Linux can use distribution's
   package manager. Consult https://golang.org/doc/install for installation instructions
   from upstream.
-- Version 5.X of `ffmpeg` and `ffprobe` binaries (built with `libvmaf`) available in
-  `$PATH`. During development static `ffmpeg/ffprobe` binaries from
-  https://johnvansickle.com/ffmpeg/ are used. **Other binaries may not work** - it depends
-  on specific Linux distribution and how they choose to build ffmpeg (read - which
-  features are enabled). `ffmpeg` is used for VMAF calculations and also in tests.
-  `ffprobe` is used to get video metadata and frame statistics.
+- `ffmpeg` and `ffprobe` binaries built with `libvmaf` support (with built-in
+  VMAF models) available on `$PATH`. CI pipeline uses static binaries from the
+  [mwader/static-ffmpeg](https://github.com/wader/static-ffmpeg) Docker image,
+  which includes `libvmaf`. If your Linux distribution does not ship `ffmpeg`
+  with libvmaf support, then it is possible to use static ffmpeg builds. Consult
+  [ffmpeg.org download page](https://ffmpeg.org/download.html) for available
+  options. `ffmpeg` is used for VMAF calculations and also in tests. `ffprobe`
+  is used to get video metadata and frame statistics.
 
 ## Develop
 
