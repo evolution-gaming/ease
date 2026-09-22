@@ -9,47 +9,53 @@ package encoding
 import (
 	"encoding/json"
 	"fmt"
+	"slices"
+	"strings"
 	"testing"
-	"time"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/evolution-gaming/ease/internal/it"
+	"github.com/evolution-gaming/ease/internal/testutil"
 )
 
 func TestCreatePlanFromConfig(t *testing.T) {
-	t.Run("Plan has expected encoding commands and output files", func(t *testing.T) {
-		// Given plan configuration
-		planConfig := PlanConfig{
-			Inputs: []string{"videos/clip01.mp4", "videos/clip02.mp4"},
-			Schemes: []Scheme{
-				{"x264 param1 x", "ffmpeg -i %INPUT% -param1 x -y %OUTPUT%.mp4"},
-				{"x264_param1_y", "ffmpeg -i %INPUT% -param1 y -y %OUTPUT%.mp4"},
-			},
-		}
-		// When I create a new Plan from PlanConfig
-		plan := NewPlan(planConfig, "out")
-		var gotCommands, gotOutputFiles []string
-		for _, c := range plan.Commands {
-			gotCommands = append(gotCommands, c.Cmd)
-			gotOutputFiles = append(gotOutputFiles, c.OutputFile)
-		}
+	// Given plan configuration
+	planConfig := PlanConfig{
+		Inputs: []string{"videos/clip01.mp4", "videos/clip02.mp4"},
+		Schemes: []Scheme{
+			{"x264 param1 x", "ffmpeg -i %INPUT% -param1 x -y %OUTPUT%.mp4"},
+			{"x264_param1_y", "ffmpeg -i %INPUT% -param1 y -y %OUTPUT%.mp4"},
+		},
+	}
+	// When I create a new Plan from PlanConfig
+	plan := NewPlan(planConfig, "out")
+	var gotCommands, gotOutputFiles []string
+	for _, c := range plan.Commands {
+		gotCommands = append(gotCommands, c.Cmd)
+		gotOutputFiles = append(gotOutputFiles, c.OutputFile)
+	}
 
+	t.Run("Should have expected encoding commands", func(t *testing.T) {
 		// Then I get fully generated encoding commands
-		wantCommands := []string{
+		// Sort so that equality can be checked irrespective of element order.
+		want := slices.Sorted(slices.Values([]string{
 			"ffmpeg -i videos/clip01.mp4 -param1 x -y out/clip01_x264_param1_x.mp4",
 			"ffmpeg -i videos/clip01.mp4 -param1 y -y out/clip01_x264_param1_y.mp4",
 			"ffmpeg -i videos/clip02.mp4 -param1 x -y out/clip02_x264_param1_x.mp4",
 			"ffmpeg -i videos/clip02.mp4 -param1 y -y out/clip02_x264_param1_y.mp4",
-		}
-		assert.ElementsMatch(t, wantCommands, gotCommands)
-
+		}))
+		got := slices.Sorted(slices.Values(gotCommands))
+		it.Should(t, slices.Equal(got, want), "got = %v, want = %v", got, want)
+	})
+	t.Run("Should have expected output files", func(t *testing.T) {
 		// And then I get correct expected output files
-		wantOutputFiles := []string{
+		want := slices.Sorted(slices.Values([]string{
 			"out/clip01_x264_param1_x.out",
 			"out/clip01_x264_param1_y.out",
 			"out/clip02_x264_param1_x.out",
 			"out/clip02_x264_param1_y.out",
-		}
-		assert.ElementsMatch(t, wantOutputFiles, gotOutputFiles)
+		}))
+		got := slices.Sorted(slices.Values(gotOutputFiles))
+		it.Should(t, slices.Equal(got, want), "got = %v, want = %v", got, want)
 	})
 }
 
@@ -80,20 +86,23 @@ func Test_HappyPathPlanExecution(t *testing.T) {
 	gotResult, err := plan.Run()
 
 	t.Run("Encoding result should have start and end time stamps", func(t *testing.T) {
-		assert.Greater(t, gotResult.EndTime, gotResult.StartTime)
+		it.Should(t, gotResult.EndTime.After(gotResult.StartTime), "%v > %v", gotResult.EndTime, gotResult.StartTime)
 	})
 	t.Run("Encoding result should be available for each encoding command", func(t *testing.T) {
-		assert.Len(t, gotResult.RunResults, wantResultCount)
+		gotCount := len(gotResult.RunResults)
+		it.Should(t, gotCount == wantResultCount, "got = %v, want = %v", gotCount, wantResultCount)
 	})
 	t.Run("Encoding result should have ExitCodes", func(t *testing.T) {
-		var wantExitCodes, gotExitCodes []int
+		var gotExitCodes []int
 		// Slice with exit codes of value 0
-		wantExitCodes = make([]int, wantResultCount)
+		wantExitCodes := make([]int, wantResultCount)
 		for _, r := range gotResult.RunResults {
 			gotExitCodes = append(gotExitCodes, r.ExitCode())
 		}
 
-		assert.ElementsMatch(t, wantExitCodes, gotExitCodes)
+		got := slices.Sorted(slices.Values(gotExitCodes))
+		want := slices.Sorted(slices.Values(wantExitCodes))
+		it.Should(t, slices.Equal(got, want), "got = %v, want = %v", got, want)
 	})
 	t.Run("Encoding result should have command stdout", func(t *testing.T) {
 		// Test for existence of some known strings/markers of ffmpeg output
@@ -112,7 +121,7 @@ func Test_HappyPathPlanExecution(t *testing.T) {
 		for _, r := range gotResult.RunResults {
 			gotOutput := r.Output()
 			for _, m := range markers {
-				assert.Contains(t, gotOutput, m)
+				it.Should(t, strings.Contains(gotOutput, m), "output missing marker %q", m)
 			}
 		}
 	})
@@ -139,7 +148,7 @@ func Test_HappyPathPlanExecution(t *testing.T) {
 		for _, r := range gotResult.RunResults {
 			got = append(got, r.SourceFile)
 		}
-		assert.Equal(t, want, got)
+		it.Should(t, slices.Equal(got, want), "got = %v, want = %v", got, want)
 	})
 	t.Run("Encoding result should have correct compressed files", func(t *testing.T) {
 		want := []string{
@@ -152,7 +161,7 @@ func Test_HappyPathPlanExecution(t *testing.T) {
 		for _, r := range gotResult.RunResults {
 			got = append(got, r.CompressedFile)
 		}
-		assert.Equal(t, want, got)
+		it.Should(t, slices.Equal(got, want), "got = %v, want = %v", got, want)
 	})
 	t.Run("Encoding result should have correct output files", func(t *testing.T) {
 		want := []string{
@@ -165,7 +174,7 @@ func Test_HappyPathPlanExecution(t *testing.T) {
 		for _, r := range gotResult.RunResults {
 			got = append(got, r.OutputFile)
 		}
-		assert.Equal(t, want, got)
+		it.Should(t, slices.Equal(got, want), "got = %v, want = %v", got, want)
 	})
 	t.Run("Encoding result should have correct log files", func(t *testing.T) {
 		want := []string{
@@ -178,16 +187,16 @@ func Test_HappyPathPlanExecution(t *testing.T) {
 		for _, r := range gotResult.RunResults {
 			got = append(got, r.LogFile)
 		}
-		assert.Equal(t, want, got)
+		it.Should(t, slices.Equal(got, want), "got = %v, want = %v", got, want)
 	})
 	t.Run("Compressed output file(s) should exist", func(t *testing.T) {
 		for _, c := range plan.Commands {
-			assert.FileExists(t, c.CompressedFile)
+			it.Should(t, testutil.FileExists(c.CompressedFile), "file should exist: %v", c.CompressedFile)
 		}
 	})
 	t.Run("Command output file(s) should exist", func(t *testing.T) {
 		for _, c := range plan.Commands {
-			assert.FileExists(t, c.OutputFile)
+			it.Should(t, testutil.FileExists(c.OutputFile), "file should exist: %v", c.OutputFile)
 		}
 	})
 	t.Run("Encoding result should have usage stats", func(t *testing.T) {
@@ -196,27 +205,27 @@ func Test_HappyPathPlanExecution(t *testing.T) {
 			gotStats := r.Stats
 			// Although individually these can be 0, Stime + Utime should be safely
 			// asserted to be > 0
-			assert.Greater(t, gotStats.Stime+gotStats.Utime, time.Duration(0))
+			it.Should(t, gotStats.Stime+gotStats.Utime > 0, "got = %v, want > 0", gotStats.Stime+gotStats.Utime)
 			// MaxRss should always be > 0
-			assert.Greater(t, gotStats.MaxRss, int64(0))
+			it.Should(t, gotStats.MaxRss > 0, "got = %v, want > 0", gotStats.MaxRss)
 			// Elapsed should always be > 0
-			assert.Greater(t, gotStats.Elapsed, time.Duration(0))
+			it.Should(t, gotStats.Elapsed > 0, "got = %v, want > 0", gotStats.Elapsed)
 			// CPUPercent() should always be > 0
-			assert.Greater(t, gotStats.CPUPercent(), float64(0))
+			it.Should(t, gotStats.CPUPercent() > 0, "got = %v, want > 0", gotStats.CPUPercent())
 		}
 	})
 	t.Run("Encoding result should have Duration", func(t *testing.T) {
-		var wantDurations, gotDurations []float64
+		var gotDurations []float64
 		// This depends on video Inputs and Scheme combination
-		wantDurations = []float64{1, 10, 1, 10}
+		wantDurations := []float64{1, 10, 1, 10}
 		for _, r := range gotResult.RunResults {
 			gotDurations = append(gotDurations, r.VideoDuration)
 		}
-		assert.Equal(t, wantDurations, gotDurations)
+		it.Should(t, slices.Equal(gotDurations, wantDurations), "got = %v, want = %v", gotDurations, wantDurations)
 	})
 	t.Run("Encoding result should have average encoding speed", func(t *testing.T) {
 		for _, r := range gotResult.RunResults {
-			assert.Greater(t, r.AvgEncodingSpeed, float64(0))
+			it.Should(t, r.AvgEncodingSpeed > 0, "got = %v, want > 0", r.AvgEncodingSpeed)
 		}
 	})
 }
@@ -238,10 +247,10 @@ func TestNegativeEncodingPlanRunWitOutputOverflow(t *testing.T) {
 
 	// When I do an unsuccessful Run of a Plan
 	gotResult, err := plan.Run()
-	assert.Error(t, err, "Should have error for unsuccessful Run")
+	it.Must(t, err != nil, "Should have error for unsuccessful Run")
 
 	gotExitCode := gotResult.RunResults[0].ExitCode()
-	assert.Equal(t, wantExitCode, gotExitCode, "Should have correct ExitCode when Run fails")
+	it.Should(t, gotExitCode == wantExitCode, "Should have correct ExitCode when Run fails: got = %v, want = %v", gotExitCode, wantExitCode)
 }
 
 func TestNegativeEncodingPlanResults(t *testing.T) {
@@ -260,25 +269,25 @@ func TestNegativeEncodingPlanResults(t *testing.T) {
 	gotResult, err := plan.Run()
 
 	t.Run("Should have error for unsuccessful Run", func(t *testing.T) {
-		assert.Error(t, err)
+		it.Must(t, err != nil, "Should have error for unsuccessful Run")
 	})
 	t.Run("Should have correct ExitCode (!=0) when Run fails", func(t *testing.T) {
 		gotExitCode := gotResult.RunResults[0].ExitCode()
-		assert.NotEqual(t, 0, gotExitCode)
+		it.Should(t, gotExitCode != 0, "got = %v, want non-zero", gotExitCode)
 	})
 	t.Run("Should have expected Error when Run fails", func(t *testing.T) {
 		wantError := "exit status"
 		// A bit dirty way to "glue" together multiple errors.
 		gotError := fmt.Sprintf("%v", gotResult.RunResults[0].Errors)
-		assert.Contains(t, gotError, wantError)
+		it.Should(t, strings.Contains(gotError, wantError), "got = %v, want to contain %v", gotError, wantError)
 	})
 	t.Run("Successful runs should not be influenced by unsuccessful", func(t *testing.T) {
 		wantExitCode := 0
 		gotExitCode := gotResult.RunResults[1].ExitCode()
-		assert.Equal(t, wantExitCode, gotExitCode)
+		it.Should(t, gotExitCode == wantExitCode, "got = %v, want = %v", gotExitCode, wantExitCode)
 
 		errors := gotResult.RunResults[1].Errors
-		assert.Nilf(t, errors, "Successful run had unexpected Errors: %v", errors)
+		it.Should(t, errors == nil, "Successful run had unexpected Errors: %v", errors)
 	})
 }
 
@@ -317,9 +326,8 @@ func TestSchemeUnmarshalJSON(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var got Scheme
 			err := json.Unmarshal(tc.given, &got)
-			assert.NoError(t, err)
-
-			assert.Equal(t, tc.want, got, "Scheme.UnmarshalJSON mismatch")
+			it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+			it.Should(t, got == tc.want, "Scheme.UnmarshalJSON mismatch: got = %v, want = %v", got, tc.want)
 		})
 	}
 }
