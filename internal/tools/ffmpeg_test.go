@@ -7,11 +7,11 @@ package tools
 import (
 	"os"
 	"path"
+	"strings"
 	"testing"
 
+	"github.com/evolution-gaming/ease/internal/it"
 	"github.com/evolution-gaming/ease/internal/video"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 func Test_Path(t *testing.T) {
@@ -36,16 +36,17 @@ func Test_Path(t *testing.T) {
 		fakeBinDir := t.TempDir()
 		wantPath := path.Join(fakeBinDir, tc.exeName)
 		f, err := os.OpenFile(wantPath, os.O_CREATE, 0o755)
-		require.NoError(t, err)
+		it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 		f.Close()
 		sysPath := os.Getenv("PATH")
 		t.Setenv("PATH", fakeBinDir+":"+sysPath)
 
 		gotPath, err := tc.pathFunc()
-		assert.NoError(t, err)
+		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
-		assert.Equal(t, wantPath, gotPath)
-		assert.FileExists(t, gotPath)
+		it.Should(t, gotPath == wantPath, "got = %v, want = %v", gotPath, wantPath)
+		_, statErr := os.Stat(gotPath)
+		it.Should(t, statErr == nil, "expected file to exist: %v (err: %v)", gotPath, statErr)
 	}
 
 	for name, tc := range tests {
@@ -75,8 +76,8 @@ func Test_Path_Negative(t *testing.T) {
 			t.Setenv("PATH", "")
 
 			s, err := tc.pathFunc()
-			assert.Error(t, err, "Expected error since binary is not on PATH")
-			assert.Equal(t, "", s, "Expected empty string as path")
+			it.Should(t, err != nil, "Expected error since binary is not on PATH")
+			it.Should(t, s == "", "Expected empty string as path: got = %v", s)
 		})
 	}
 }
@@ -153,8 +154,8 @@ func Test_FfprobeExtractMetadata(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			gotMetadata, err := FfprobeExtractMetadata(tc.videoFile)
-			assert.NoError(t, err)
-			assert.Equal(t, tc.wantMetadata, gotMetadata)
+			it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+			it.Should(t, gotMetadata == tc.wantMetadata, "got = %v, want = %v", gotMetadata, tc.wantMetadata)
 		})
 	}
 }
@@ -183,8 +184,9 @@ func Test_FfprobeExtractMetadata_Negative(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			gotMetadata, err := FfprobeExtractMetadata(tc.badVideoFile)
-			assert.ErrorContains(t, err, tc.wantErrString)
-			assert.Equal(t, gotMetadata, video.Metadata{})
+			it.Must(t, err != nil, "Should have error")
+			it.Should(t, strings.Contains(err.Error(), tc.wantErrString), "got = %v, want to contain %v", err, tc.wantErrString)
+			it.Should(t, gotMetadata == video.Metadata{}, "got = %v, want = %v", gotMetadata, video.Metadata{})
 		})
 	}
 }
