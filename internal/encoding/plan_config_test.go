@@ -8,17 +8,21 @@ package encoding
 
 import (
 	"encoding/json"
+	"errors"
 	"reflect"
+	"slices"
+	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/evolution-gaming/ease/internal/it"
 )
 
 func TestNewPlanConfigFromJSON(t *testing.T) {
 	tests := map[string]struct {
-		err   error
 		want  PlanConfig
 		given []byte
+		// For positive scenario leave check function nil.
+		checkErr func(err error) bool
 	}{
 		"Positive": {
 			given: []byte(`{
@@ -47,18 +51,19 @@ func TestNewPlanConfigFromJSON(t *testing.T) {
 					{"sc2", "sc2 command template"},
 				},
 			},
-			err: nil,
 		},
 		// Should this be positive?!
 		"Positive incomplete JSON": {
 			given: []byte(`{ "Inputs": ["input1"]}`),
 			want:  PlanConfig{Inputs: []string{"input1"}},
-			err:   nil,
 		},
 		"Negative invalid JSON": {
 			given: []byte("]"),
 			want:  PlanConfig{},
-			err:   &json.SyntaxError{},
+			checkErr: func(err error) bool {
+				var errT *json.SyntaxError
+				return errors.As(err, &errT)
+			},
 		},
 	}
 
@@ -66,16 +71,14 @@ func TestNewPlanConfigFromJSON(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			got, err := NewPlanConfigFromJSON(tc.given)
 
-			if tc.err == nil {
+			if tc.checkErr == nil {
 				// Positive scenario case when error should be absent (nil).
-				assert.NoError(t, err)
+				it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 			} else {
 				// Negative scenario with expected non-nil error.
-				gotE := reflect.TypeOf(err)
-				wantE := reflect.TypeOf(tc.err)
-				assert.Equal(t, wantE, gotE)
+				it.Should(t, tc.checkErr(err), "Unexpected error type: %T", err)
 			}
-			assert.Equal(t, tc.want, got, "PlanConfig mismatch")
+			it.Should(t, reflect.DeepEqual(got, tc.want), "got = %v, want = %v", got, tc.want)
 		})
 	}
 }
@@ -86,8 +89,8 @@ func TestPlanConfigIsValid(t *testing.T) {
 		Schemes: []Scheme{{}},
 	}
 	validState, err := pc.IsValid()
-	assert.True(t, validState)
-	assert.NoError(t, err)
+	it.Should(t, validState, "PlanConfig validation failed")
+	it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 }
 
 func TestNegativePlanConfigIsValid(t *testing.T) {
@@ -141,13 +144,15 @@ func TestNegativePlanConfigIsValid(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			validState, err := tc.given.IsValid()
-			assert.ErrorContains(t, err, wantErrorMsg)
-			assert.False(t, validState)
+			it.Must(t, err != nil, "Got nil instead of error")
+			it.Should(t, strings.Contains(err.Error(), wantErrorMsg), "expected error message missing: %v", wantErrorMsg)
+			it.Should(t, validState == false, "got = %v, want = %v", validState, false)
 
 			// Cast error in order to check Reasons().
 			gotErr, ok := err.(*PlanConfigError)
-			assert.Truef(t, ok, "Unexpected error type, want PlanConfigError, got %T", err)
-			assert.Equal(t, tc.wantReasons, gotErr.Reasons())
+			it.Must(t, ok, "Unexpected error type, want PlanConfigError, got %T", err)
+			it.Should(t, slices.Equal(tc.wantReasons, gotErr.Reasons()),
+				"Reasons mismatch: got = %v, want = %v", gotErr.Reasons(), tc.wantReasons)
 		})
 	}
 }
@@ -178,7 +183,7 @@ func TestHasDuplicatesTable(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			got := hasDuplicates(tc.given)
-			assert.Equal(t, tc.want, got)
+			it.Should(t, got == tc.want, "got = %v, want = %v", got, tc.want)
 		})
 	}
 }
