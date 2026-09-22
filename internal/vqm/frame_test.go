@@ -10,8 +10,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
+	"github.com/evolution-gaming/ease/internal/it"
 )
 
 var (
@@ -22,7 +21,7 @@ var (
 
 func fixLoadVmafJSONMetrics(t *testing.T) io.Reader {
 	given, err := os.ReadFile(metricsFile)
-	assert.NoError(t, err)
+	it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 	return bytes.NewReader(given)
 }
 
@@ -30,18 +29,18 @@ func TestFrameMetrics_FromFfmpegVMAF(t *testing.T) {
 	var got FrameMetrics
 
 	err := got.FromFfmpegVMAF(fixLoadVmafJSONMetrics(t))
-	require.NoError(t, err)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 	t.Run("Should have correct metrics count", func(t *testing.T) {
-		assert.Len(t, got, wantMetricCount)
+		it.Should(t, len(got) == wantMetricCount, "got = %v, want = %v", len(got), wantMetricCount)
 	})
 
 	t.Run("FrameMetric should have correct fields", func(t *testing.T) {
 		for i, v := range got {
-			assert.EqualValues(t, i, v.FrameNum)
-			assert.Greater(t, v.VMAF, float64(0), "VMAF should be positive")
-			assert.Greater(t, v.PSNR, float64(0), "PSNR should be positive")
-			assert.Greater(t, v.MS_SSIM, float64(0), "MS-SSIM should be positive")
+			it.Should(t, uint(i) == v.FrameNum, "got = %v, want = %v", v.FrameNum, i)
+			it.Should(t, v.VMAF > 0, "VMAF should be positive: got = %v", v.VMAF)
+			it.Should(t, v.PSNR > 0, "PSNR should be positive: got = %v", v.PSNR)
+			it.Should(t, v.MS_SSIM > 0, "MS-SSIM should be positive: got = %v", v.MS_SSIM)
 		}
 	})
 }
