@@ -7,18 +7,18 @@ package main
 
 import (
 	"encoding/csv"
+	"errors"
 	"fmt"
 	"io"
 	"os"
 	"path"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/evolution-gaming/ease/internal/encoding"
+	"github.com/evolution-gaming/ease/internal/it"
 	"github.com/evolution-gaming/ease/internal/testutil"
-
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // Happy path functional test for run sub-command.
@@ -32,28 +32,34 @@ func Test_RunApp_Run(t *testing.T) {
 		// Run command will generate encoding artifacts and analysis artifacts.
 		app := CreateRunCommand()
 		err := app.Run([]string{"-plan", ePlan, "-out-dir", outDir})
-		assert.NoError(t, err, "Unexpected error running encode")
+		it.Should(t, err == nil, "Unexpected error running encode: got = %v, want = nil", err)
 	})
 
 	t.Run("Should have a CSV report file", func(t *testing.T) {
 		fd, err2 := os.Open(path.Join(outDir, "report.csv"))
-		assert.NoError(t, err2, "Unexpected error opening report.csv")
+		it.Should(t, err2 == nil, "Unexpected error opening report.csv: got = %v, want = nil", err2)
 		defer fd.Close()
 		records, err3 := csv.NewReader(fd).ReadAll()
-		assert.NoError(t, err3, "Unexpected error reading CSV records")
+		it.Should(t, err3 == nil, "Unexpected error reading CSV records: got = %v, want = nil", err3)
 		// Expect 2 records: CSV header + record for 1 encoding.
-		assert.Len(t, records, 2, "Unexpected number of records in report file")
+		wantCount := 2
+		gotCount := len(records)
+		it.Should(t, gotCount == wantCount, "Unexpected number of records in report file: got = %v, want = %v", gotCount, wantCount)
 	})
 
 	t.Run("Should create plots", func(t *testing.T) {
-		bitratePlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*bitrate.png", outDir))
-		assert.Len(t, bitratePlots, 1, "Expecting one file for bitrate plot")
+		plotFileGlobs := []string{
+			fmt.Sprintf("%s/*/*bitrate.png", outDir),
+			fmt.Sprintf("%s/*/*vmaf.png", outDir),
+			fmt.Sprintf("%s/*/*psnr.png", outDir),
+		}
 
-		vmafPlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*vmaf.png", outDir))
-		assert.Len(t, vmafPlots, 1, "Expecting one file for VMAF plot")
-
-		psnrPlots, _ := filepath.Glob(fmt.Sprintf("%s/*/*psnr.png", outDir))
-		assert.Len(t, psnrPlots, 1, "Expecting one file for PSNR plot")
+		for _, g := range plotFileGlobs {
+			plots, _ := filepath.Glob(g)
+			it.Must(t, plots != nil, "Glob match should not be nil")
+			got := len(plots)
+			it.Should(t, got == 1, "Expecting one file matching glob \"%v\": got = %v", g, got)
+		}
 	})
 }
 
@@ -106,7 +112,8 @@ func Test_RunApp_Run_FlagErrors(t *testing.T) {
 			// not flooded with command Usage/Help stuff.
 			cmd.fs.SetOutput(io.Discard)
 			gotErr := cmd.Run(tc.givenArgs)
-			assert.ErrorContains(t, gotErr, tc.want)
+			it.Must(t, gotErr != nil, "Should have error")
+			it.Should(t, strings.Contains(gotErr.Error(), tc.want), "got = %v, want to contain %v", gotErr, tc.want)
 		})
 	}
 }
@@ -123,14 +130,14 @@ func Test_RunApp_Run_WithFailedVQM(t *testing.T) {
 	wantErrMsg := "FFmpeg VMAF support validation"
 	wantExitCode := 1
 	gotErr := app.Run([]string{"-plan", plan, "-out-dir", outDir})
-	assert.NotNil(t, gotErr)
-	assert.ErrorContains(t, gotErr, wantErrMsg)
+	it.Must(t, gotErr != nil, "Should have error")
+	it.Should(t, strings.Contains(gotErr.Error(), wantErrMsg), "got = %v, want to contain %v", gotErr, wantErrMsg)
 
 	var appErr *AppError
-	assert.ErrorAs(t, gotErr, &appErr)
+	it.Must(t, errors.As(gotErr, &appErr), "Expecting error of type AppError: got = %v", gotErr)
 
 	gotExitCode := appErr.ExitCode()
-	assert.Equal(t, wantExitCode, gotExitCode, "Exit code mismatch")
+	it.Should(t, gotExitCode == wantExitCode, "Exit code mismatch: got = %v, want = %v", gotExitCode, wantExitCode)
 }
 
 func Test_RunApp_Run_WithInvalidPlanConfigParseError(t *testing.T) {
@@ -139,13 +146,14 @@ func Test_RunApp_Run_WithInvalidPlanConfigParseError(t *testing.T) {
 	wantExitCode := 1
 
 	gotErr := app.Run([]string{"-plan", fixPlanConfigInvalid(t), "-out-dir", t.TempDir()})
-	assert.ErrorContains(t, gotErr, wantErrMsg)
+	it.Must(t, gotErr != nil, "Should have error")
+	it.Should(t, strings.Contains(gotErr.Error(), wantErrMsg), "got = %v, want to contain %v", gotErr, wantErrMsg)
 
 	var appErr *AppError
-	assert.ErrorAs(t, gotErr, &appErr)
+	it.Must(t, errors.As(gotErr, &appErr), "Expecting error of type AppError: got = %v", gotErr)
 
 	gotExitCode := appErr.ExitCode()
-	assert.Equal(t, wantExitCode, gotExitCode, "Exit code mismatch")
+	it.Should(t, gotExitCode == wantExitCode, "Exit code mismatch: got = %v, want = %v", gotExitCode, wantExitCode)
 }
 
 func Test_RunApp_Run_WithNonEmptyOutDirShouldTerminate(t *testing.T) {
@@ -155,21 +163,23 @@ func Test_RunApp_Run_WithNonEmptyOutDirShouldTerminate(t *testing.T) {
 	outDir := path.Dir(plan)
 
 	t.Logf("Given existing out dir: %s", outDir)
-	require.NoError(t, os.MkdirAll(outDir, 0o755))
+	err := os.MkdirAll(outDir, 0o755)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 	t.Log("When plan is executed")
 	gotErr := app.Run([]string{"-plan", plan, "-out-dir", outDir})
 
 	t.Log("Then there is an error and program terminates")
 	wantErrMsg := "non-empty out dir"
-	assert.ErrorContains(t, gotErr, wantErrMsg)
+	it.Must(t, gotErr != nil, "Should have error")
+	it.Should(t, strings.Contains(gotErr.Error(), wantErrMsg), "got = %v, want to contain %v", gotErr, wantErrMsg)
 
 	var appErr *AppError
-	assert.ErrorAs(t, gotErr, &appErr)
+	it.Must(t, errors.As(gotErr, &appErr), "Expecting error of type AppError: got = %v", gotErr)
 
 	wantExitCode := 1
 	gotExitCode := appErr.ExitCode()
-	assert.Equal(t, wantExitCode, gotExitCode, "Exit code mismatch")
+	it.Should(t, gotExitCode == wantExitCode, "Exit code mismatch: got = %v, want = %v", gotExitCode, wantExitCode)
 }
 
 func Test_RunApp_Run_WithInvalidApplicationConfig(t *testing.T) {
@@ -178,13 +188,13 @@ func Test_RunApp_Run_WithInvalidApplicationConfig(t *testing.T) {
 	// Empty configuration is wrong configuration. When we explicitly specify
 	// configuration file, we expect all options to be defined.
 	err := os.WriteFile(confFile, invalidConfig, 0o600)
-	require.NoError(t, err)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 	app := CreateRunCommand()
 	gotErr := app.Run([]string{"-plan", fixPlanConfigInvalid(t), "-out-dir", t.TempDir(), "-conf", confFile})
 
 	var expErr *AppError
-	assert.ErrorAs(t, gotErr, &expErr, "Expecting error of type AppError")
+	it.Must(t, errors.As(gotErr, &expErr), "Expecting error of type AppError: got = %v", gotErr)
 }
 
 func Test_RunApp_Run_MisalignedFrames(t *testing.T) {
@@ -193,8 +203,9 @@ func Test_RunApp_Run_MisalignedFrames(t *testing.T) {
 	gotErr := app.Run([]string{"-plan", plan, "-out-dir", t.TempDir()})
 
 	var expErr *AppError
-	assert.ErrorAs(t, gotErr, &expErr, "Expecting error of type AppError")
-	assert.ErrorContains(t, gotErr, "VQM calculations had errors, see log for reasons")
+	it.Must(t, errors.As(gotErr, &expErr), "Expecting error of type AppError: got = %v", gotErr)
+	wantErrMsg := "VQM calculations had errors, see log for reasons"
+	it.Should(t, strings.Contains(gotErr.Error(), wantErrMsg), "got = %v, want to contain %v", gotErr, wantErrMsg)
 }
 
 // Functional tests for other sub-commands..
@@ -207,21 +218,23 @@ func TestIntegration_AllSubcommands(t *testing.T) {
 	// Run command will generate encoding artifacts and analysis artifacts for later use
 	// ans inputs.
 	err := CreateRunCommand().Run([]string{"-plan", ePlan, "-out-dir", outDir})
-	require.NoError(t, err)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 	t.Run("vqmplot should create plots", func(t *testing.T) {
 		var vqmFile string
 		// Need to get file with VQMs from encode stage.
 		m, _ := filepath.Glob(fmt.Sprintf("%s/*vqm.json", outDir))
-		assert.Len(t, m, 1)
+		wantMatches := 1
+		gotMatches := len(m)
+		it.Should(t, gotMatches == wantMatches, "got = %v, want = %v", gotMatches, wantMatches)
 		vqmFile = m[0]
 
 		for _, metric := range []string{"VMAF", "PSNR", "MS-SSIM"} {
 			t.Run(metric, func(t *testing.T) {
 				outFile := path.Join(tempDir, fmt.Sprintf("vqmplot_%s.png", metric))
 				err := CreateVQMPlotCommand().Run([]string{"-i", vqmFile, "-o", outFile, "-m", metric, "-fps", "24"})
-				assert.NoError(t, err, "Unexpected error running vqmplot")
-				assert.FileExists(t, outFile, "VQM file missing")
+				it.Should(t, err == nil, "Unexpected error running vqmplot: got = %v, want = nil", err)
+				it.Should(t, testutil.FileExists(outFile), "VQM file missing: %v", outFile)
 			})
 		}
 	})
@@ -230,27 +243,29 @@ func TestIntegration_AllSubcommands(t *testing.T) {
 		var compressedFile string
 		// Need to get compressed file from encode stage.
 		m, _ := filepath.Glob(fmt.Sprintf("%s/*.mp4", outDir))
-		assert.Len(t, m, 1)
+		wantMatches := 1
+		gotMatches := len(m)
+		it.Should(t, gotMatches == wantMatches, "got = %v, want = %v", gotMatches, wantMatches)
 		compressedFile = m[0]
 
 		outFile := path.Join(tempDir, "bitrate.png")
 		err := CreateBitrateCommand().Run([]string{"-i", compressedFile, "-o", outFile})
-		assert.NoError(t, err, "Unexpected error running bitrate")
-		assert.FileExists(t, outFile, "bitrate plot file missing")
+		it.Should(t, err == nil, "Unexpected error running bitrate: got = %v, want = nil", err)
+		it.Should(t, testutil.FileExists(outFile), "bitrate plot file missing: %v", outFile)
 	})
 
 	t.Run("new-plan should create plan template", func(t *testing.T) {
 		planFile := path.Join(t.TempDir(), "plan.json")
 		err := CreateNewPlanCommand().Run([]string{"-i", "video1.mp4", "-o", planFile})
-		assert.NoError(t, err)
+		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 		b, err := os.ReadFile(planFile)
-		assert.NoError(t, err)
+		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 		pc, err := encoding.NewPlanConfigFromJSON(b)
-		assert.NoError(t, err)
+		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
-		assert.Len(t, pc.Inputs, 1)
-		assert.Equal(t, pc.Inputs[0], "video1.mp4")
-		assert.True(t, len(pc.Schemes) > 0)
+		it.Should(t, len(pc.Inputs) == 1, "got = %v, want = 1", len(pc.Inputs))
+		it.Should(t, pc.Inputs[0] == "video1.mp4", "got = %v, want = %v", pc.Inputs[0], "video1.mp4")
+		it.Should(t, len(pc.Schemes) > 0, "got = %v, want > 0", len(pc.Schemes))
 	})
 }

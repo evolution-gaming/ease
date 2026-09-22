@@ -5,12 +5,14 @@
 package metric
 
 import (
+	"errors"
 	"fmt"
+	"slices"
 	"sync"
 	"sync/atomic"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/evolution-gaming/ease/internal/it"
 )
 
 // Number of iterations for stress scenarios.
@@ -29,46 +31,47 @@ func Test_Store_HappyPath(t *testing.T) {
 	id2 = store.Insert(r2)
 
 	t.Run("Retrieve all inserted IDs", func(t *testing.T) {
-		ids := store.GetIDs()
-		assert.ElementsMatch(t, []ID{id1, id2}, ids)
+		want := slices.Sorted(slices.Values([]ID{id1, id2}))
+		got := slices.Sorted(slices.Values(store.GetIDs()))
+		it.Should(t, slices.Equal(got, want), "got = %v, want = %v", got, want)
 	})
 
 	t.Run("Inserted records exist", func(t *testing.T) {
 		// Inserted records Exist!
-		assert.True(t, store.Exists(id1))
-		assert.True(t, store.Exists(id2))
+		it.Should(t, store.Exists(id1), "record should exist: %v", id1)
+		it.Should(t, store.Exists(id2), "record should exist: %v", id2)
 	})
 
 	t.Run("Inserted records can be retrieved", func(t *testing.T) {
 		gotR1, err := store.Get(id1)
-		assert.NoError(t, err)
-		assert.Equal(t, r1, gotR1)
+		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+		it.Should(t, gotR1 == r1, "got = %v, want = %v", gotR1, r1)
 		gotR2, err := store.Get(id2)
-		assert.NoError(t, err)
-		assert.Equal(t, r2, gotR2)
+		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+		it.Should(t, gotR2 == r2, "got = %v, want = %v", gotR2, r2)
 	})
 
 	t.Run("Update existing record", func(t *testing.T) {
-		new := Record{Name: "new name"}
+		newRecord := Record{Name: "new name"}
 		// Check that before update the new and old really are not equal.
 		old, _ := store.Get(id1)
-		assert.NotEqual(t, old, new)
+		it.Should(t, old != newRecord, "got = %v, want != %v", old, newRecord)
 
 		// Now we do the update.
-		err := store.Update(id1, new)
-		assert.NoError(t, err)
+		err := store.Update(id1, newRecord)
+		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 		// Retrieve updated record an compare, they should be equal.
 		updated, _ := store.Get(id1)
-		assert.Equal(t, new, updated)
+		it.Should(t, updated == newRecord, "got = %v, want = %v", updated, newRecord)
 	})
 
 	t.Run("Delete record", func(t *testing.T) {
 		id := store.Insert(Record{Name: "delete this record"})
-		assert.True(t, store.Exists(id))
+		it.Should(t, store.Exists(id), "record should exist: %v", id)
 
 		err := store.Delete(id)
-		assert.NoError(t, err)
-		assert.False(t, store.Exists(id))
+		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+		it.Should(t, !store.Exists(id), "record should not exist: %v", id)
 	})
 }
 
@@ -78,19 +81,19 @@ func Test_Store_SadPath(t *testing.T) {
 
 	t.Run("Error retrieving non-existent record", func(t *testing.T) {
 		// Check that non existent record is indeed non-existent.
-		assert.False(t, store.Exists(nonExistentID))
+		it.Should(t, !store.Exists(nonExistentID), "record should not exist: %v", nonExistentID)
 		_, err := store.Get(nonExistentID)
-		assert.ErrorIs(t, err, ErrRecordNotFound)
+		it.Should(t, errors.Is(err, ErrRecordNotFound), "got = %v, want = %v", err, ErrRecordNotFound)
 	})
 
 	t.Run("Error updating non-existent record", func(t *testing.T) {
 		err := store.Update(nonExistentID, Record{Name: "update"})
-		assert.ErrorIs(t, err, ErrRecordNotFound)
+		it.Should(t, errors.Is(err, ErrRecordNotFound), "got = %v, want = %v", err, ErrRecordNotFound)
 	})
 
 	t.Run("Error deleting non-existent record", func(t *testing.T) {
 		err := store.Delete(nonExistentID)
-		assert.ErrorIs(t, err, ErrRecordNotFound)
+		it.Should(t, errors.Is(err, ErrRecordNotFound), "got = %v, want = %v", err, ErrRecordNotFound)
 	})
 }
 
@@ -99,7 +102,7 @@ func Test_Store_StressInsertDelete(t *testing.T) {
 	var errCounter atomic.Int64
 	store := NewStore()
 	// Insert part stressing.
-	for i := 0; i < stressIter; i++ {
+	for i := range stressIter {
 		wg.Add(1)
 		go func(iter int) {
 			defer wg.Done()
@@ -108,8 +111,8 @@ func Test_Store_StressInsertDelete(t *testing.T) {
 	}
 	wg.Wait()
 
-	assert.Len(t, store.records, stressIter)
-	assert.Len(t, store.GetIDs(), stressIter)
+	it.Should(t, len(store.records) == stressIter, "got = %v, want = %v", len(store.records), stressIter)
+	it.Should(t, len(store.GetIDs()) == stressIter, "got = %v, want = %v", len(store.GetIDs()), stressIter)
 	// Delete part stressing.
 	for _, id := range store.GetIDs() {
 		wg.Add(1)
@@ -122,9 +125,8 @@ func Test_Store_StressInsertDelete(t *testing.T) {
 	}
 	wg.Wait()
 
-	if cnt := errCounter.Load(); cnt != 0 {
-		t.Errorf("Stress Delete caused %d errors", cnt)
-	}
+	cnt := errCounter.Load()
+	it.Should(t, cnt == 0, "Stress Delete caused %d errors", cnt)
 }
 
 func Test_Store_StressUpdate(t *testing.T) {
@@ -133,7 +135,7 @@ func Test_Store_StressUpdate(t *testing.T) {
 	store := NewStore()
 	id := store.Insert(Record{Name: "first"})
 
-	for i := 0; i < stressIter; i++ {
+	for i := range stressIter {
 		wg.Add(1)
 		go func(iter int) {
 			defer wg.Done()
@@ -142,7 +144,8 @@ func Test_Store_StressUpdate(t *testing.T) {
 			}
 		}(i)
 	}
-	if cnt := errCounter.Load(); cnt != 0 {
-		t.Errorf("Stress Update caused %d errors", cnt)
-	}
+	wg.Wait()
+
+	cnt := errCounter.Load()
+	it.Should(t, cnt == 0, "Stress Update caused %d errors", cnt)
 }

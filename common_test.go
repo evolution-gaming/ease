@@ -6,9 +6,10 @@
 package main
 
 import (
+	"math"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/evolution-gaming/ease/internal/it"
 )
 
 func Test_all_Positive(t *testing.T) {
@@ -74,7 +75,8 @@ func Test_all_Positive(t *testing.T) {
 	t.Run("float type tests", func(t *testing.T) {
 		for name, tc := range floatTests {
 			t.Run(name, func(t *testing.T) {
-				assert.Equal(t, tc.want, all(tc.given, tc.cmp))
+				got := all(tc.given, tc.cmp)
+				it.Should(t, got == tc.want, "got = %v, want = %v", got, tc.want)
 			})
 		}
 	})
@@ -82,7 +84,8 @@ func Test_all_Positive(t *testing.T) {
 	t.Run("string type tests", func(t *testing.T) {
 		for name, tc := range stringTests {
 			t.Run(name, func(t *testing.T) {
-				assert.Equal(t, tc.want, all(tc.given, tc.cmp))
+				got := all(tc.given, tc.cmp)
+				it.Should(t, got == tc.want, "got = %v, want = %v", got, tc.want)
 			})
 		}
 	})
@@ -141,11 +144,11 @@ func Test_parseFraction(t *testing.T) {
 			got, err := parseFraction(tc.given)
 			switch tc.wantErr {
 			case true:
-				assert.Error(t, err)
+				it.Should(t, err != nil, "Expected error, got nil")
 			default:
-				assert.NoError(t, err)
+				it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 			}
-			assert.InDelta(t, tc.want, got, 1e-9)
+			it.Should(t, math.Abs(got-tc.want) <= 1e-9, "got = %v, want = %v (delta 1e-9)", got, tc.want)
 		})
 	}
 }

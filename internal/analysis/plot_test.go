@@ -8,14 +8,14 @@ package analysis
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path"
 	"testing"
 
+	"github.com/evolution-gaming/ease/internal/it"
 	"github.com/evolution-gaming/ease/internal/tools"
 	"github.com/evolution-gaming/ease/internal/vqm"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 	"gonum.org/v1/plot/plotter"
 )
 
@@ -27,11 +27,11 @@ func getVmafValues(t *testing.T) plotter.XYs {
 	var metrics vqm.FrameMetrics
 
 	j, err := os.Open(frameMetricsFile)
-	require.NoError(t, err)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 	defer j.Close()
 
 	err2 := json.NewDecoder(j).Decode(&metrics)
-	require.NoError(t, err2, "Error Unmarshaling metrics")
+	it.Must(t, err2 == nil, "Error Unmarshaling metrics: got = %v, want = nil", err2)
 
 	values := make(plotter.XYs, 0, len(metrics))
 	for i, v := range metrics {
@@ -50,8 +50,8 @@ func Test_CreateHistogramPlot(t *testing.T) {
 
 	t.Run("Creating histogram plot should succeed", func(t *testing.T) {
 		got, err := CreateHistogramPlot(vmafs, title)
-		require.NoError(t, err)
-		assert.Equal(t, title, got.X.Label.Text, "Plot title mismatch")
+		it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+		it.Should(t, got.X.Label.Text == title, "Plot title mismatch: got = %v, want = %v", got.X.Label.Text, title)
 	})
 }
 
@@ -61,8 +61,8 @@ func Test_CreateVqmPlot(t *testing.T) {
 
 	t.Run("Creating VQM plot should succeed", func(t *testing.T) {
 		got, err := CreateVqmPlot(vmafs, title)
-		require.NoError(t, err)
-		assert.Equal(t, title, got.Y.Label.Text, "Plot title mismatch")
+		it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+		it.Should(t, got.Y.Label.Text == title, "Plot title mismatch: got = %v, want = %v", got.Y.Label.Text, title)
 	})
 }
 
@@ -76,8 +76,8 @@ func Test_CreateCDFPlot(t *testing.T) {
 
 	t.Run("Creating CDF plot should succeed", func(t *testing.T) {
 		got, err := CreateCDFPlot(vmafYs, title)
-		require.NoError(t, err)
-		assert.Equal(t, title, got.X.Label.Text, "Plot title mismatch")
+		it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+		it.Should(t, got.X.Label.Text == title, "Plot title mismatch: got = %v, want = %v", got.X.Label.Text, title)
 	})
 }
 
@@ -88,42 +88,42 @@ func Test_MultiPlotVqm(t *testing.T) {
 	t.Run("Creating VQM multi-plot should succeed", func(t *testing.T) {
 		outFile := path.Join(outDir, "vqm.png")
 		err := MultiPlotVqm(vmafs, "VMAF", "Test plot title", outFile)
-		require.NoError(t, err)
+		it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 		fi, err2 := os.Stat(outFile)
-		require.NoError(t, err2)
+		it.Must(t, err2 == nil, "Unexpected error: got = %v, want = nil", err2)
 
 		// We can't realistically check generated image, instead will do some
 		// reasonable check on file properties.
-		assert.Greater(t, fi.Size(), int64(10), "Resulting plot file size too small")
+		it.Should(t, fi.Size() > 10, "Resulting plot file size too small: got = %v, want > 10", fi.Size())
 	})
 }
 
 func Test_CreateBitratePlot(t *testing.T) {
 	videoFile := "../../testdata/video/testsrc02.mp4"
 	ffprobePath, err := tools.FfprobePath()
-	require.NoError(t, err)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 	frameStats, err := GetFrameStats(videoFile, ffprobePath)
-	require.NoError(t, err)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 	t.Run("Creating bitrate plot should succeed", func(t *testing.T) {
 		got, err := CreateBitratePlot(frameStats)
-		require.NoError(t, err)
-		assert.Equal(t, "Kbps", got.Y.Label.Text, "Plot title mismatch")
+		it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+		it.Should(t, got.Y.Label.Text == "Kbps", "Plot title mismatch: got = %v, want = %v", got.Y.Label.Text, "Kbps")
 	})
 }
 
 func Test_CreateFrameSizePlot(t *testing.T) {
 	videoFile := "../../testdata/video/testsrc02.mp4"
 	ffprobePath, err := tools.FfprobePath()
-	require.NoError(t, err)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 	frameStats, err := GetFrameStats(videoFile, ffprobePath)
-	require.NoError(t, err)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 	t.Run("Creating frame size plot should succeed", func(t *testing.T) {
 		got, err := CreateFrameSizePlot(frameStats)
-		require.NoError(t, err)
-		assert.Equal(t, "KB", got.Y.Label.Text, "Plot title mismatch")
+		it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+		it.Should(t, got.Y.Label.Text == "KB", "Plot title mismatch: got = %v, want = %v", got.Y.Label.Text, "KB")
 	})
 }
 
@@ -131,19 +131,19 @@ func Test_MultiPlotBitrate(t *testing.T) {
 	outDir := t.TempDir()
 	videoFile := "../../testdata/video/testsrc02.mp4"
 	ffprobePath, err := tools.FfprobePath()
-	require.NoError(t, err)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 	t.Run("Should create bitrate multi-plot", func(t *testing.T) {
 		outFile := path.Join(outDir, "bitrate.png")
 		err := MultiPlotBitrate(videoFile, outFile, ffprobePath)
-		require.NoError(t, err)
+		it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 		fi, err2 := os.Stat(outFile)
-		require.NoError(t, err2)
+		it.Must(t, err2 == nil, "Unexpected error: got = %v, want = nil", err2)
 
 		// We can't realistically check generated image, instead will do some
 		// reasonable check on file properties.
-		assert.Greater(t, fi.Size(), int64(10), "Resulting plot file size too small")
+		it.Should(t, fi.Size() > 10, "Resulting plot file size too small: got = %v, want > 10", fi.Size())
 	})
 }
 
@@ -153,17 +153,17 @@ func Test_GetFrameStats(t *testing.T) {
 	wantStatCount := 10
 
 	ffprobePath, err := tools.FfprobePath()
-	require.NoError(t, err)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 	frameStats, err := GetFrameStats(videoFile, ffprobePath)
-	require.NoError(t, err)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 	t.Run("Should have FrameStat for each frame", func(t *testing.T) {
-		assert.Len(t, frameStats, wantStatCount)
+		it.Should(t, len(frameStats) == wantStatCount, "got = %v, want = %v", len(frameStats), wantStatCount)
 	})
 
 	t.Run("Consecutive frames should have different PTS-es", func(t *testing.T) {
 		for i := 0; i < len(frameStats)-1; i++ {
-			assert.NotEqual(t, frameStats[i].PtsTime, frameStats[i+1].PtsTime, "Consecutive PTS-es equal!")
+			it.Should(t, frameStats[i].PtsTime != frameStats[i+1].PtsTime, "Consecutive PTS-es equal!")
 		}
 	})
 }
@@ -220,10 +220,11 @@ func Test_getDuration(t *testing.T) {
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			var frames []FrameStat
-			assert.NoError(t, json.Unmarshal(tc.given, &frames))
+			err := json.Unmarshal(tc.given, &frames)
+			it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 			got := getDuration(frames)
-			assert.InDelta(t, tc.want, got, 0.001)
+			it.Should(t, math.Abs(got-tc.want) <= 0.001, "got = %v, want = %v (delta 0.001)", got, tc.want)
 		})
 	}
 }
@@ -267,8 +268,8 @@ func Test_FrameStat_UnmarshalJSON(t *testing.T) {
 	run := func(t *testing.T, tc testCase) {
 		var fs FrameStat
 		err := fs.UnmarshalJSON(tc.given)
-		assert.NoError(t, err)
-		assert.Equal(t, tc.want, fs)
+		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+		it.Should(t, fs == tc.want, "got = %v, want = %v", fs, tc.want)
 	}
 
 	for name, tc := range tests {

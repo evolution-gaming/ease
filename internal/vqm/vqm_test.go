@@ -9,12 +9,12 @@ import (
 	"flag"
 	"os"
 	"path"
+	"strings"
 	"testing"
 
+	"github.com/evolution-gaming/ease/internal/it"
 	"github.com/evolution-gaming/ease/internal/logging"
 	"github.com/evolution-gaming/ease/internal/testutil"
-	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
 )
 
 // Define flags for `go test`.
@@ -63,24 +63,24 @@ func TestFfmpegVMAF(t *testing.T) {
 			FfmpegVMAFTemplate: DefaultFfmpegVMAFTemplate,
 			ResultFile:         resultFile,
 		}, compressedFile, srcFile)
-		assert.NoError(t, err)
+		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 	})
 
 	t.Run("Call Measure()", func(t *testing.T) {
 		err := tool.Measure()
-		assert.NoError(t, err)
+		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 	})
 
 	t.Run("Call GetMetrics()", func(t *testing.T) {
 		var err error
 		aggMetrics, err = tool.GetMetrics()
-		assert.NoError(t, err)
+		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 	})
 
 	t.Run("Aggregate metrics should be non-zero", func(t *testing.T) {
-		require.NotNil(t, aggMetrics)
-		assert.NotZero(t, aggMetrics.VMAF.Mean, "No VMAF metric detected")
-		assert.NotZero(t, aggMetrics.PSNR.Mean, "No PSNR metric detected")
+		it.Must(t, aggMetrics != nil, "aggMetrics should not be nil")
+		it.Should(t, aggMetrics.VMAF.Mean != 0, "No VMAF metric detected")
+		it.Should(t, aggMetrics.PSNR.Mean != 0, "No PSNR metric detected")
 	})
 }
 
@@ -99,15 +99,16 @@ func TestFfmpegVMAF_WithMSSSIM(t *testing.T) {
 		FfmpegVMAFTemplate: ffmpegVMAFTemplate,
 		ResultFile:         path.Join(t.TempDir(), "result_2.json"),
 	}, compressedFile, srcFile)
-	assert.NoError(t, err)
+	it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
-	assert.NoError(t, tool.Measure())
+	err = tool.Measure()
+	it.Should(t, err == nil, "Unexpected error from first call to Measure(): got = %v, want = nil", err)
 
 	aggMetrics, err := tool.GetMetrics()
-	assert.NoError(t, err)
-	assert.NotZero(t, aggMetrics.VMAF.Mean, "No VMAF metric detected")
-	assert.NotZero(t, aggMetrics.PSNR.Mean, "No PSNR metric detected")
-	assert.NotZero(t, aggMetrics.MS_SSIM.Mean, "No MS-SSIM metric detected")
+	it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+	it.Should(t, aggMetrics.VMAF.Mean != 0, "No VMAF metric detected")
+	it.Should(t, aggMetrics.PSNR.Mean != 0, "No PSNR metric detected")
+	it.Should(t, aggMetrics.MS_SSIM.Mean != 0, "No MS-SSIM metric detected")
 }
 
 func TestFfmpegVMAF_Negative(t *testing.T) {
@@ -124,7 +125,7 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 			ResultFile:         resultFile,
 		}, compressedFile, srcFile)
 
-		assert.NoError(t, err)
+		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 		return tool
 	}
@@ -140,7 +141,7 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 			ResultFile:         resultFile,
 		}, compressedFile, srcFile)
 
-		assert.NoError(t, err)
+		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 		return tool
 	}
@@ -149,20 +150,23 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 		wantErrMsg := "GetMetrics() depends on Measure() called first"
 		tool := getValidTool()
 		_, err := tool.GetMetrics()
-		require.Error(t, err)
-		assert.ErrorContains(t, err, wantErrMsg)
+		it.Must(t, err != nil, "Should have error")
+		it.Should(t, strings.Contains(err.Error(), wantErrMsg), "got = %v, want to contain %v", err, wantErrMsg)
 	})
 	t.Run("Second call to Measure() should error", func(t *testing.T) {
 		tool := getValidTool()
 		// First call is fine.
-		assert.NoError(t, tool.Measure(), "Unexpected error from first call to Measure()")
+		err := tool.Measure()
+		it.Should(t, err == nil, "Unexpected error from first call to Measure(): got = %v, want = nil", err)
 
 		// Second call errors.
-		assert.Error(t, tool.Measure(), "Expected error from second call to Measure()")
+		err = tool.Measure()
+		it.Should(t, err != nil, "Expected error from second call to Measure()")
 	})
 	t.Run("Calling Measure() on invalid tool should error", func(t *testing.T) {
 		tool := getInvalidTool()
-		assert.Error(t, tool.Measure(), "Expected error calling Measure() on invalid tool")
+		err := tool.Measure()
+		it.Should(t, err != nil, "Expected error calling Measure() on invalid tool")
 	})
 }
 
@@ -189,32 +193,32 @@ func Test_ffmpegVMAFResult_UnmarshalVersions(t *testing.T) {
 	for version, tt := range tests {
 		t.Run(version, func(t *testing.T) {
 			jsonDoc, err := os.ReadFile(tt.resultFile)
-			assert.NoError(t, err)
+			it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 			res := &ffmpegVMAFResult{}
 			err2 := json.Unmarshal(jsonDoc, res)
-			require.NoError(t, err2)
+			it.Must(t, err2 == nil, "Unexpected error: got = %v, want = nil", err2)
 
-			assert.Equal(t, version, res.Version)
+			it.Should(t, res.Version == version, "got = %v, want = %v", res.Version, version)
 
 			// Check that per-frame VQM values were properly unmarshalled
 			// (should not be 0). Only VMAF and PSNR are verified, since MS-SSIM
 			// measurement is disabled in default configuration.
 			for _, v := range res.Frames {
-				assert.NotZero(t, v.Metrics.VMAF)
-				assert.NotZero(t, v.Metrics.PSNR)
+				it.Should(t, v.Metrics.VMAF != 0, "VMAF should not be zero")
+				it.Should(t, v.Metrics.PSNR != 0, "PSNR should not be zero")
 			}
 
 			// Check that pooled metric values were properly unmarshalled (should not be 0).
-			assert.NotZero(t, res.PooledMetrics.VMAF.Min)
-			assert.NotZero(t, res.PooledMetrics.VMAF.Max)
-			assert.NotZero(t, res.PooledMetrics.VMAF.Mean)
-			assert.NotZero(t, res.PooledMetrics.VMAF.HarmonicMean)
+			it.Should(t, res.PooledMetrics.VMAF.Min != 0, "PooledMetrics.VMAF.Min should not be zero")
+			it.Should(t, res.PooledMetrics.VMAF.Max != 0, "PooledMetrics.VMAF.Max should not be zero")
+			it.Should(t, res.PooledMetrics.VMAF.Mean != 0, "PooledMetrics.VMAF.Mean should not be zero")
+			it.Should(t, res.PooledMetrics.VMAF.HarmonicMean != 0, "PooledMetrics.VMAF.HarmonicMean should not be zero")
 
-			assert.NotZero(t, res.PooledMetrics.PSNR.Min)
-			assert.NotZero(t, res.PooledMetrics.PSNR.Max)
-			assert.NotZero(t, res.PooledMetrics.PSNR.Mean)
-			assert.NotZero(t, res.PooledMetrics.PSNR.HarmonicMean)
+			it.Should(t, res.PooledMetrics.PSNR.Min != 0, "PooledMetrics.PSNR.Min should not be zero")
+			it.Should(t, res.PooledMetrics.PSNR.Max != 0, "PooledMetrics.PSNR.Max should not be zero")
+			it.Should(t, res.PooledMetrics.PSNR.Mean != 0, "PooledMetrics.PSNR.Mean should not be zero")
+			it.Should(t, res.PooledMetrics.PSNR.HarmonicMean != 0, "PooledMetrics.PSNR.HarmonicMean should not be zero")
 		})
 	}
 }
