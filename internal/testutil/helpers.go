@@ -1,3 +1,7 @@
+// Copyright ©2026 Evolution. All rights reserved.
+// Use of this source code is governed by a MIT-style
+// license that can be found in the LICENSE file.
+
 // Package testutil also contains some test helpers/predicates as in this file.
 package testutil
 
