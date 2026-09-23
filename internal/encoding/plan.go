@@ -94,7 +94,10 @@ func (s *EncoderCmd) Run() RunResult {
 		logging.Debugf("Stderr: %s", buf.Bytes())
 		r.AddError(err)
 	}
-	r.Stats = metric.NewUsageStat(time.Since(start), r.Rusage())
+	elapsed := time.Since(start)
+	if r.Stats, err = metric.NewUsageStat(elapsed, r.Rusage()); err != nil {
+		r.AddError(fmt.Errorf("usage stats: %w", err))
+	}
 	// Add VideoDuration and also calculate approximation to average encoding speed.
 	vmeta, err := tools.FfprobeExtractMetadata(r.CompressedFile)
 	if err != nil {
@@ -102,7 +105,7 @@ func (s *EncoderCmd) Run() RunResult {
 		r.AddError(err)
 	} else {
 		r.VideoDuration = vmeta.Duration
-		r.AvgEncodingSpeed = vmeta.Duration / r.Stats.Elapsed.Seconds()
+		r.AvgEncodingSpeed = vmeta.Duration / elapsed.Seconds()
 	}
 	r.stderr = buf.Bytes()
 
@@ -290,7 +293,12 @@ type RunResult struct {
 }
 
 // ExitCode returns exit code of executed encoding run.
+//
+// Returns -1 if command has not been executed.
 func (s *RunResult) ExitCode() int {
+	if s.cmd == nil {
+		return -1
+	}
 	return s.cmd.ProcessState.ExitCode()
 }
 
@@ -302,8 +310,18 @@ func (s *RunResult) Output() string {
 	return string(s.stderr)
 }
 
+// Rusage will return resource usage for this encoding run.
+//
+// Will return nil in case command has not been executed, process state is
+// nil or if SysUsage returns data which cannot be converted to *syscall.Rusage.
 func (s *RunResult) Rusage() *syscall.Rusage {
-	usage, _ := s.cmd.ProcessState.SysUsage().(*syscall.Rusage)
+	if s.cmd == nil || s.cmd.ProcessState == nil {
+		return nil
+	}
+	usage, ok := s.cmd.ProcessState.SysUsage().(*syscall.Rusage)
+	if !ok {
+		return nil
+	}
 	return usage
 }
 
