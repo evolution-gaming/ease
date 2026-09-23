@@ -267,10 +267,9 @@ func TestNegativeEncodingPlanResults(t *testing.T) {
 	plan := NewPlan(planConfig, outDir)
 	// When I do an unsuccessful Run of a Plan
 	gotResult, err := plan.Run()
+	it.Must(t, err != nil, "Should have error for unsuccessful Run")
+	it.Must(t, len(gotResult.RunResults) == 2, "got = %v, want = 2", len(gotResult.RunResults))
 
-	t.Run("Should have error for unsuccessful Run", func(t *testing.T) {
-		it.Must(t, err != nil, "Should have error for unsuccessful Run")
-	})
 	t.Run("Should have correct ExitCode (!=0) when Run fails", func(t *testing.T) {
 		gotExitCode := gotResult.RunResults[0].ExitCode()
 		it.Should(t, gotExitCode != 0, "got = %v, want non-zero", gotExitCode)

@@ -37,10 +37,10 @@ func Test_RunApp_Run(t *testing.T) {
 
 	t.Run("Should have a CSV report file", func(t *testing.T) {
 		fd, err2 := os.Open(path.Join(outDir, "report.csv"))
-		it.Should(t, err2 == nil, "Unexpected error opening report.csv: got = %v, want = nil", err2)
+		it.Must(t, err2 == nil, "Unexpected error opening report.csv: got = %v, want = nil", err2)
 		defer fd.Close()
 		records, err3 := csv.NewReader(fd).ReadAll()
-		it.Should(t, err3 == nil, "Unexpected error reading CSV records: got = %v, want = nil", err3)
+		it.Must(t, err3 == nil, "Unexpected error reading CSV records: got = %v, want = nil", err3)
 		// Expect 2 records: CSV header + record for 1 encoding.
 		wantCount := 2
 		gotCount := len(records)
@@ -226,7 +226,7 @@ func TestIntegration_AllSubcommands(t *testing.T) {
 		m, _ := filepath.Glob(fmt.Sprintf("%s/*vqm.json", outDir))
 		wantMatches := 1
 		gotMatches := len(m)
-		it.Should(t, gotMatches == wantMatches, "got = %v, want = %v", gotMatches, wantMatches)
+		it.Must(t, gotMatches == wantMatches, "got = %v, want = %v", gotMatches, wantMatches)
 		vqmFile = m[0]
 
 		for _, metric := range []string{"VMAF", "PSNR", "MS-SSIM"} {
@@ -245,7 +245,7 @@ func TestIntegration_AllSubcommands(t *testing.T) {
 		m, _ := filepath.Glob(fmt.Sprintf("%s/*.mp4", outDir))
 		wantMatches := 1
 		gotMatches := len(m)
-		it.Should(t, gotMatches == wantMatches, "got = %v, want = %v", gotMatches, wantMatches)
+		it.Must(t, gotMatches == wantMatches, "got = %v, want = %v", gotMatches, wantMatches)
 		compressedFile = m[0]
 
 		outFile := path.Join(tempDir, "bitrate.png")
@@ -257,14 +257,14 @@ func TestIntegration_AllSubcommands(t *testing.T) {
 	t.Run("new-plan should create plan template", func(t *testing.T) {
 		planFile := path.Join(t.TempDir(), "plan.json")
 		err := CreateNewPlanCommand().Run([]string{"-i", "video1.mp4", "-o", planFile})
-		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+		it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 		b, err := os.ReadFile(planFile)
-		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+		it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 		pc, err := encoding.NewPlanConfigFromJSON(b)
-		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+		it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
-		it.Should(t, len(pc.Inputs) == 1, "got = %v, want = 1", len(pc.Inputs))
+		it.Must(t, len(pc.Inputs) == 1, "got = %v, want = 1", len(pc.Inputs))
 		it.Should(t, pc.Inputs[0] == "video1.mp4", "got = %v, want = %v", pc.Inputs[0], "video1.mp4")
 		it.Should(t, len(pc.Schemes) > 0, "got = %v, want > 0", len(pc.Schemes))
 	})
