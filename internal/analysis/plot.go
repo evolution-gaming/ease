@@ -195,12 +195,16 @@ func MultiPlotVqm(vqmValues plotter.XYer, metric, title, outFile string) (err er
 
 	w, err := os.Create(outFile)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("MultiPlotVqm() creating plot file: %w", err)
 	}
-	defer w.Close()
 	png := vgimg.PngCanvas{Canvas: img}
 	if _, err := png.WriteTo(w); err != nil {
-		panic(err)
+		w.Close()
+		return fmt.Errorf("MultiPlotVqm() writing plot file: %w", err)
+	}
+	// Close error matters for written file, e.g. data not flushed to disk.
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("MultiPlotVqm() closing plot file: %w", err)
 	}
 
 	return nil

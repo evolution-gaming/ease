@@ -208,6 +208,91 @@ func Test_RunApp_Run_MisalignedFrames(t *testing.T) {
 	it.Should(t, strings.Contains(gotErr.Error(), wantErrMsg), "got = %v, want to contain %v", gotErr, wantErrMsg)
 }
 
+/*************************************
+* Tests for bitrate sub-command.
+ *************************************/
+
+// Error cases for bitrate sub-command.
+func Test_BitrateApp_Run_Errors(t *testing.T) {
+	tempDir := t.TempDir()
+	videoFile := "testdata/video/testsrc01.mp4"
+
+	// Config file pointing to non-existent ffprobe, should fail config validation.
+	invalidConf := path.Join(tempDir, "invalid.json")
+	err := os.WriteFile(invalidConf, []byte(`{"ffprobe_path": "/non/existent/ffprobe"}`), 0o600)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+
+	tests := map[string]struct {
+		// substring in Error()
+		want         string
+		givenArgs    []string
+		wantExitCode int
+	}{
+		"Wrong flags": {
+			givenArgs:    []string{"-zzz", "-i", videoFile},
+			want:         "usage error",
+			wantExitCode: 2,
+		},
+		"Non-existent config file": {
+			givenArgs:    []string{"-conf", "missing-conf.json", "-i", videoFile},
+			want:         "no such file or directory",
+			wantExitCode: 1,
+		},
+		"Invalid config": {
+			givenArgs:    []string{"-conf", invalidConf, "-i", videoFile},
+			want:         "configuration validation",
+			wantExitCode: 1,
+		},
+		"Mandatory input flag missing": {
+			givenArgs:    []string{},
+			want:         "mandatory option -i is missing",
+			wantExitCode: 2,
+		},
+		"Non-existent input file": {
+			givenArgs:    []string{"-i", "non-existent.mp4", "-o", path.Join(tempDir, "out.png")},
+			want:         "video file should exist",
+			wantExitCode: 1,
+		},
+		"Non-existent output dir": {
+			givenArgs:    []string{"-i", videoFile, "-o", path.Join(tempDir, "no-such-dir", "out.png")},
+			want:         "creating plot file",
+			wantExitCode: 1,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			cmd := CreateBitrateCommand()
+			// Discard usage output so that test output is not flooded.
+			cmd.fs.SetOutput(io.Discard)
+			gotErr := cmd.Run(tc.givenArgs)
+			it.Must(t, gotErr != nil, "Should have error")
+			it.Should(t, strings.Contains(gotErr.Error(), tc.want), "got = %v, want to contain %v", gotErr, tc.want)
+
+			var appErr *AppError
+			it.Must(t, errors.As(gotErr, &appErr), "Expecting error of type AppError: got = %v", gotErr)
+			gotExitCode := appErr.ExitCode()
+			it.Should(t, gotExitCode == tc.wantExitCode, "Exit code mismatch: got = %v, want = %v", gotExitCode, tc.wantExitCode)
+		})
+	}
+}
+
+// When -o flag is omitted, plot PNG file name is derived from input file name
+// and written to current working directory.
+func Test_BitrateApp_Run_DefaultOutFile(t *testing.T) {
+	wantFile := "testsrc01.png"
+	videoFile, err := filepath.Abs("testdata/video/testsrc01.mp4")
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+
+	// Change to temp dir in order to avoid polluting project directory.
+	t.Chdir(t.TempDir())
+
+	err = CreateBitrateCommand().Run([]string{"-i", videoFile})
+	it.Must(t, err == nil, "Unexpected error running bitrate: got = %v, want = nil", err)
+
+	it.Should(t, testutil.FileExists(wantFile), "bitrate plot file missing: %v", wantFile)
+}
+
 // Functional tests for other sub-commands..
 func TestIntegration_AllSubcommands(t *testing.T) {
 	testutil.EnsureFfmpegWithVMAF(t)

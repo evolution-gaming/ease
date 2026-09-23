@@ -11,6 +11,7 @@ import (
 	"math"
 	"os"
 	"path"
+	"strings"
 	"testing"
 
 	"github.com/evolution-gaming/ease/internal/it"
@@ -96,6 +97,14 @@ func Test_MultiPlotVqm(t *testing.T) {
 		// We can't realistically check generated image, instead will do some
 		// reasonable check on file properties.
 		it.Should(t, fi.Size() > 10, "Resulting plot file size too small: got = %v, want > 10", fi.Size())
+	})
+
+	t.Run("Non-existent output dir should error", func(t *testing.T) {
+		outFile := path.Join(outDir, "no-such-dir", "vqm.png")
+		err := MultiPlotVqm(vmafs, "VMAF", "Test plot title", outFile)
+		it.Must(t, err != nil, "Should have error")
+		wantErrMsg := "creating plot file"
+		it.Should(t, strings.Contains(err.Error(), wantErrMsg), "got = %v, want to contain %v", err, wantErrMsg)
 	})
 }
 
