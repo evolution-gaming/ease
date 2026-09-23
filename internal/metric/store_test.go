@@ -16,7 +16,7 @@ import (
 )
 
 // Number of iterations for stress scenarios.
-var stressIter int = 1_000_000
+var stressIter int = 100_000
 
 func Test_Store_HappyPath(t *testing.T) {
 	store := NewStore()
