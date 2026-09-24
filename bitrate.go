@@ -157,12 +157,16 @@ func run(videoFile, plotFile, ffprobePath string) error {
 
 	w, err := os.Create(plotFile)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("creating plot file: %w", err)
 	}
-	defer w.Close()
 	png := vgimg.PngCanvas{Canvas: img}
 	if _, err := png.WriteTo(w); err != nil {
-		panic(err)
+		w.Close()
+		return fmt.Errorf("writing plot file: %w", err)
+	}
+	// Close error matters for written file, e.g. data not flushed to disk.
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("closing plot file: %w", err)
 	}
 
 	return nil

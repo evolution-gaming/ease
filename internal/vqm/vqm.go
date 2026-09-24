@@ -133,12 +133,11 @@ func (f *FfmpegVMAF) Measure() error {
 	}
 	tDelta := time.Since(tStart)
 
-	rusage, ok := cmd.ProcessState.SysUsage().(*syscall.Rusage)
-	if !ok {
-		return errors.New("getting VQM calculation rusage")
+	rusage, _ := cmd.ProcessState.SysUsage().(*syscall.Rusage)
+	f.usageStat, err = metric.NewUsageStat(tDelta, rusage)
+	if err != nil {
+		return fmt.Errorf("getting VQM calculation rusage: %w", err)
 	}
-
-	f.usageStat = metric.NewUsageStat(tDelta, rusage)
 	f.measured = true
 
 	return nil

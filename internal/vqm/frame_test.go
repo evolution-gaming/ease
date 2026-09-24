@@ -20,8 +20,9 @@ var (
 )
 
 func fixLoadVmafJSONMetrics(t *testing.T) io.Reader {
+	t.Helper()
 	given, err := os.ReadFile(metricsFile)
-	it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 	return bytes.NewReader(given)
 }
 

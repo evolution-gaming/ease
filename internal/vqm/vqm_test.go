@@ -42,9 +42,6 @@ func TestMain(m *testing.M) {
 }
 
 func TestFfmpegVMAF(t *testing.T) {
-	var tool *FfmpegVMAF // tool under test
-	var aggMetrics *AggregateMetric
-
 	ffmpegExePath := testutil.EnsureFfmpegWithVMAF(t)
 	wrkDir := t.TempDir()
 
@@ -56,30 +53,23 @@ func TestFfmpegVMAF(t *testing.T) {
 		resultFile = path.Join(cwd, "result.json")
 	}
 
-	t.Run("NewFfmpegVMAF creates new VQM tool", func(t *testing.T) {
-		var err error
-		tool, err = NewFfmpegVMAF(&FfmpegVMAFConfig{
-			FfmpegPath:         ffmpegExePath,
-			FfmpegVMAFTemplate: DefaultFfmpegVMAFTemplate,
-			ResultFile:         resultFile,
-		}, compressedFile, srcFile)
-		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
-	})
+	tool, err := NewFfmpegVMAF(&FfmpegVMAFConfig{
+		FfmpegPath:         ffmpegExePath,
+		FfmpegVMAFTemplate: DefaultFfmpegVMAFTemplate,
+		ResultFile:         resultFile,
+	}, compressedFile, srcFile)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
-	t.Run("Call Measure()", func(t *testing.T) {
-		err := tool.Measure()
-		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
-	})
+	err = tool.Measure()
+	it.Must(t, err == nil, "Unexpected error from Measure(): got = %v, want = nil", err)
 
-	t.Run("Call GetMetrics()", func(t *testing.T) {
-		var err error
-		aggMetrics, err = tool.GetMetrics()
-		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
-	})
+	aggMetrics, err := tool.GetMetrics()
+	it.Must(t, err == nil, "Unexpected error from GetMetrics(): got = %v, want = nil", err)
 
-	t.Run("Aggregate metrics should be non-zero", func(t *testing.T) {
-		it.Must(t, aggMetrics != nil, "aggMetrics should not be nil")
+	t.Run("Should have VMAF metric", func(t *testing.T) {
 		it.Should(t, aggMetrics.VMAF.Mean != 0, "No VMAF metric detected")
+	})
+	t.Run("Should have PSNR metric", func(t *testing.T) {
 		it.Should(t, aggMetrics.PSNR.Mean != 0, "No PSNR metric detected")
 	})
 }
@@ -99,13 +89,13 @@ func TestFfmpegVMAF_WithMSSSIM(t *testing.T) {
 		FfmpegVMAFTemplate: ffmpegVMAFTemplate,
 		ResultFile:         path.Join(t.TempDir(), "result_2.json"),
 	}, compressedFile, srcFile)
-	it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 	err = tool.Measure()
 	it.Should(t, err == nil, "Unexpected error from first call to Measure(): got = %v, want = nil", err)
 
 	aggMetrics, err := tool.GetMetrics()
-	it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+	it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 	it.Should(t, aggMetrics.VMAF.Mean != 0, "No VMAF metric detected")
 	it.Should(t, aggMetrics.PSNR.Mean != 0, "No PSNR metric detected")
 	it.Should(t, aggMetrics.MS_SSIM.Mean != 0, "No MS-SSIM metric detected")
@@ -115,7 +105,8 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 	ffmpegExePath := testutil.EnsureFfmpegWithVMAF(t)
 
 	// Valid tool fixture.
-	getValidTool := func() *FfmpegVMAF {
+	getValidTool := func(t *testing.T) *FfmpegVMAF {
+		t.Helper()
 		srcFile := "../../testdata/video/testsrc01.mp4"
 		compressedFile := "../../testdata/video/testsrc01.mp4"
 		resultFile := t.TempDir() + "/result.json"
@@ -125,13 +116,14 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 			ResultFile:         resultFile,
 		}, compressedFile, srcFile)
 
-		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+		it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 		return tool
 	}
 
 	// Invalid tool fixture.
-	getInvalidTool := func() *FfmpegVMAF {
+	getInvalidTool := func(t *testing.T) *FfmpegVMAF {
+		t.Helper()
 		srcFile := "nonexistent-source"
 		compressedFile := "non-existent-compressed"
 		resultFile := t.TempDir() + "/result.json"
@@ -141,20 +133,20 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 			ResultFile:         resultFile,
 		}, compressedFile, srcFile)
 
-		it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+		it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 		return tool
 	}
 
 	t.Run("Call GetMetrics() before Measure() should error", func(t *testing.T) {
 		wantErrMsg := "GetMetrics() depends on Measure() called first"
-		tool := getValidTool()
+		tool := getValidTool(t)
 		_, err := tool.GetMetrics()
 		it.Must(t, err != nil, "Should have error")
 		it.Should(t, strings.Contains(err.Error(), wantErrMsg), "got = %v, want to contain %v", err, wantErrMsg)
 	})
 	t.Run("Second call to Measure() should error", func(t *testing.T) {
-		tool := getValidTool()
+		tool := getValidTool(t)
 		// First call is fine.
 		err := tool.Measure()
 		it.Should(t, err == nil, "Unexpected error from first call to Measure(): got = %v, want = nil", err)
@@ -164,7 +156,7 @@ func TestFfmpegVMAF_Negative(t *testing.T) {
 		it.Should(t, err != nil, "Expected error from second call to Measure()")
 	})
 	t.Run("Calling Measure() on invalid tool should error", func(t *testing.T) {
-		tool := getInvalidTool()
+		tool := getInvalidTool(t)
 		err := tool.Measure()
 		it.Should(t, err != nil, "Expected error calling Measure() on invalid tool")
 	})
@@ -193,7 +185,7 @@ func Test_ffmpegVMAFResult_UnmarshalVersions(t *testing.T) {
 	for version, tt := range tests {
 		t.Run(version, func(t *testing.T) {
 			jsonDoc, err := os.ReadFile(tt.resultFile)
-			it.Should(t, err == nil, "Unexpected error: got = %v, want = nil", err)
+			it.Must(t, err == nil, "Unexpected error: got = %v, want = nil", err)
 
 			res := &ffmpegVMAFResult{}
 			err2 := json.Unmarshal(jsonDoc, res)
